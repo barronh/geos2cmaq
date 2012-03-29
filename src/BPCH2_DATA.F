@@ -1,0 +1,320 @@
+      MODULE GEO_DATA
+
+C************************************************************************
+C
+C     FUNCTION: Defines Harvard CTM data BPCH2 format
+C
+C  Apr 2006 -- Sergey L. Napelenok
+C      Modified to describe GEOS-Chem files provided by Daven Henze
+C  Mar 2011 -- Sergey L. Napelenok
+C      Modified for AQMEII project
+C      Use both tracer file and species file
+C
+C....................................................................
+
+c..Data file variable
+      CHARACTER( 256 )   ::  GEO_INPUT_PATH
+      CHARACTER( 256 )   ::  GEO_INPUT_FILE
+ 
+c..Horizontal Grid data
+      INTEGER, PARAMETER :: NCOLS_GEO = 45
+      INTEGER, PARAMETER :: NROWS_GEO = 33
+
+      REAL, PARAMETER    :: DEL_LON = 2.5
+      REAL, PARAMETER    :: DEL_LAT = 2.0
+
+c..Redefinition of record's year
+      INTEGER   bpchYear
+
+c..Vertical coordinate levels
+
+c SLN (14Mar2011) - sigma levels come from http://acmg.seas.harvard.edu/geos/doc/man/
+      INTEGER, PARAMETER  :: N_GEO_LAYS = 47  ! GEOS-5 reduced
+      REAL                :: GEO_SIGMA( N_GEO_LAYS + 1 ) = ( /
+     &                                                    1.000000, 
+     &                                                    0.984999, 
+     &                                                    0.969913, 
+     &                                                    0.954828, 
+     &                                                    0.939743, 
+     &                                                    0.924658, 
+     &                                                    0.909573, 
+     &                                                    0.894489, 
+     &                                                    0.879406, 
+     &                                                    0.864323, 
+     &                                                    0.849239, 
+     &                                                    0.834157, 
+     &                                                    0.819075, 
+     &                                                    0.798967, 
+     &                                                    0.773832, 
+     &                                                    0.748698, 
+     &                                                    0.723570, 
+     &                                                    0.698442, 
+     &                                                    0.673314, 
+     &                                                    0.635628, 
+     &                                                    0.597953, 
+     &                                                    0.560278, 
+     &                                                    0.522620, 
+     &                                                    0.484970, 
+     &                                                    0.447337, 
+     &                                                    0.409720, 
+     &                                                    0.372133, 
+     &                                                    0.334566, 
+     &                                                    0.285142, 
+     &                                                    0.242032, 
+     &                                                    0.205513, 
+     &                                                    0.174608, 
+     &                                                    0.148418, 
+     &                                                    0.126157, 
+     &                                                    0.107233, 
+     &                                                    0.091149, 
+     &                                                    0.077477, 
+     &                                                    0.055641, 
+     &                                                    0.039641, 
+     &                                                    0.027987, 
+     &                                                    0.019523, 
+     &                                                    0.009162, 
+     &                                                    0.004013, 
+     &                                                    0.001619, 
+     &                                                    0.000599, 
+     &                                                    0.000199, 
+     &                                                    0.000055, 
+     &                                                    0.000000 / )
+
+      REAL :: GEO_TOP = 0.01    ! pressure at the top in hPa
+
+
+c SLN (14Mar2011) species list in GEOSChem tracer file
+#include <MAPPING.TRACER>
+#include <MAPPING.CSPEC>
+
+      CONTAINS
+
+      !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      !  Subroutine to read the GEO monthly average data
+      !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      Subroutine LoadGEO( CGRID_GT, CGRID_GS, JDATE, JTIME, status )
+
+      Implicit None
+
+      ! array argument
+      Real CGRID_GT( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GT, 24 )
+      Real CGRID_GS( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GS, 24 )
+
+      Integer JDATE, JTIME, status
+
+      ! external functions
+      Integer GETEFILE
+      Integer SECSDIFF
+      Integer ENVINT   
+      
+      ! local variables
+      Integer GEO_UNIT
+      Character*(80) MSG      
+      Integer recDate, recTime, tDiff
+      Logical found
+      Character*(128) fname
+      Character*(40) ftype
+      Character*(80) toptitle
+ 
+      Character*(20) modelName
+      Real modelRes(2)
+      Integer halfpolar
+      Integer center180
+      Integer myear,mnth, mday
+ 
+      Character*40 category
+      Integer  tracer
+      Character*40 unit
+      Real*8   tau0, tau1
+      Character*40 reserved
+      Integer dim(6)
+      Integer skip
+      Real blank
+
+      Logical, save :: first = .true.
+
+      INTEGER  :: NCOUNT
+
+
+      Real buffer( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS )
+
+      integer timestep
+
+      status = 0
+
+      ! on first call, get path of input data file
+      if( first ) then
+        Call ENVSTR('GEO_INPUT_PATH','Path of GEO_INPUT_FILE', ' ', GEO_INPUT_PATH, status)
+        if( status.ne.0 ) then
+          MSG = 'ERROR: GEO_INPUT_PATH not defined'
+          CALL M3ERR ('BPCH_BCON', JDATE, JTIME, MSG, .TRUE. )
+          endif
+        first = .false.
+        endif
+
+c - TRACER file
+
+      ! build GEO_INPUT_FILE
+      myear = JDATE / 1000
+      Call DAYMON(JDATE, mnth, mday)
+c     mhour = JTIME / 10000
+      write(GEO_INPUT_FILE,'(a,''BC.'',i4.4,2i2.2)') TRIM(GEO_INPUT_PATH),
+     &      myear, mnth, mday
+
+      ! open data file 
+      GEO_UNIT=99
+      OPEN( GEO_UNIT,FILE=GEO_INPUT_FILE,STATUS='OLD',FORM='UNFORMATTED',
+     &      ACCESS='SEQUENTIAL',iostat=status)
+      if( status.ne.0 ) then
+        MSG = 'ERROR: GEO_INPUT_PATH not defined'
+        CALL M3ERR ('BPCH_BCON', JDATE, JTIME, MSG, .TRUE. )
+        endif
+
+C  read header record  
+      read(GEO_UNIT, iostat=status) ftype
+      if( status.ne.0 ) then
+        write(*,'(''**ERROR** cannot read header record 1'')')
+        goto 100
+        endif
+
+      read(GEO_UNIT, iostat=status) toptitle
+      if( status.ne.0 ) then
+        write(*,'(''**ERROR** cannot read header record 2'')')
+        goto 100
+        endif
+
+C  read record of data values
+      CGRID_GT = -0.00001
+
+C  read record of data values and fill array
+      found = .false.
+
+      do timestep = 1, 24
+
+      do NCOUNT = 1, NSPC_GT
+
+        read(GEO_UNIT,iostat=status) modelName, modelRes, halfpolar, center180   
+        if( status.ne.0 ) then
+          write(*,'(''**ERROR** cannot read data header record 1'')')
+          goto 100
+          endif
+
+        read(GEO_UNIT,iostat=status) category, tracer, unit, tau0, tau1,         
+     &                         reserved, dim, skip
+        if( status.ne.0 ) then
+          write(*,'(''**ERROR** cannot read data header record 2'')')
+          goto 100
+          endif
+
+        ! skip species with less than N_GEO_LAYS layers
+        if( dim(3) .ne. N_GEO_LAYS ) then
+          read(GEO_UNIT) blank
+          cycle
+          endif
+
+        read(GEO_UNIT,iostat=status) buffer
+        if( status.ne.0 ) then
+         write(*,'(''**ERROR** cannot read data record for tracer'',i5)') NCOUNT
+         goto 100
+         endif
+
+        found = .true.
+        CGRID_GT(:,:,:,NCOUNT,timestep) =  buffer
+
+        enddo
+
+        enddo
+
+  100 Close (GEO_UNIT)
+      if( .NOT.found) then
+        MSG = 'ERROR: Could not read GEO_INPUT_FILE'                           
+        CALL M3ERR ('BPCH_BCON', JDATE, JTIME, MSG, .TRUE. ) 
+        endif
+
+c - SPECIES file
+
+      ! build GEO_INPUT_FILE
+      myear = JDATE / 1000
+      Call DAYMON(JDATE, mnth, mday)
+c     mhour = JTIME / 10000
+      write(GEO_INPUT_FILE,'(a,''BC.CSPEC.'',i4.4,2i2.2)') TRIM(GEO_INPUT_PATH),
+     &      myear, mnth, mday
+
+      ! open data file 
+      GEO_UNIT=98
+      OPEN( GEO_UNIT,FILE=GEO_INPUT_FILE,STATUS='OLD',FORM='UNFORMATTED',
+     &      ACCESS='SEQUENTIAL',iostat=status)
+      if( status.ne.0 ) then
+        MSG = 'ERROR: GEO_INPUT_PATH not defined'
+        CALL M3ERR ('BPCH_BCON', JDATE, JTIME, MSG, .TRUE. )
+        endif
+
+C  read header record  
+      read(GEO_UNIT, iostat=status) ftype
+      if( status.ne.0 ) then
+        write(*,'(''**ERROR** cannot read header record 1'')')
+        goto 101
+        endif
+
+      read(GEO_UNIT, iostat=status) toptitle
+      if( status.ne.0 ) then
+        write(*,'(''**ERROR** cannot read header record 2'')')
+        goto 101
+        endif
+
+C  read record of data values
+      CGRID_GS = -0.00001
+
+C  read record of data values and fill array
+      found = .false.
+
+
+      do timestep = 1, 24
+
+      do NCOUNT = 1, NSPC_GS
+
+        if( NCOUNT.gt.NSPC_GS ) EXIT
+
+        read(GEO_UNIT,iostat=status) modelName, modelRes, halfpolar, center180   
+        if( status.ne.0 ) then
+          write(*,'(''**ERROR** cannot read data header record 1'')')
+          goto 101
+          endif
+
+        read(GEO_UNIT,iostat=status) category, tracer, unit, tau0, tau1,         
+     &                         reserved, dim, skip
+        if( status.ne.0 ) then
+          write(*,'(''**ERROR** cannot read data header record 2'')')
+          goto 101
+          endif
+
+        ! skip species with less than N_GEO_LAYS layers
+        if( dim(3) .ne. N_GEO_LAYS ) then
+          read(GEO_UNIT) blank
+          cycle
+          endif
+
+        read(GEO_UNIT,iostat=status) buffer
+        if( status.ne.0 ) then
+         write(*,'(''**ERROR** cannot read data record for tracer'',i5)') NCOUNT
+         goto 101
+         endif
+
+        found = .true.
+        CGRID_GS(:,:,:,NCOUNT,timestep) =  buffer
+
+        enddo
+
+        enddo
+
+  101 Close (GEO_UNIT)
+      if( .NOT.found) then
+        MSG = 'ERROR: Could not read GEO_INPUT_FILE'                           
+        CALL M3ERR ('BPCH_BCON', JDATE, JTIME, MSG, .TRUE. )
+        endif
+
+
+      Return 
+      End Subroutine LoadGEO
+
+      END MODULE GEO_DATA
