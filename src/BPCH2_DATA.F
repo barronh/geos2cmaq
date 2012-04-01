@@ -100,8 +100,7 @@ c SLN (14Mar2011) species list in GEOSChem tracer file
       !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
       Subroutine LoadGEO(JDATE, JTIME, status )
-      Integer GEO_UNIT
-
+      
       USE UTILIO_DEFN
 
       Implicit None
@@ -225,8 +224,8 @@ C  read record of data values and fill array
         read(GEO_UNIT,iostat=status) category, tracer, unit, tau0, tau1,         
      &                         reserved, dim, skip
         IF (FIRSTREAD) THEN
-          SKIP_COLS = skip(1)
-          SKIP_ROWS = skip(2)
+          SKIP_COLS = dim(4)
+          SKIP_ROWS = dim(5)
           NCOLS_GEO = dim(1)
           NROWS_GEO = dim(2)
 !         N_GEO_LAYS = dim(3)
@@ -276,7 +275,8 @@ c.. Printing for testing purposes
           print*,'Dimensions of GEOS-Chem data: ', NCOLS_GEO, NROWS_GEO
           print*,'Latitudes of GEOS-Chem grid: ',LAT_GEO
           print*,'Longitudes of GEOS-Chem grid: ', LON_GEO
-
+          print*,'Resolution (hard coded lat/lon): ', DEL_LAT, DEL_LON
+          
           FIRSTREAD = .false. 
         ENDIF
         if( status.ne.0 ) then
