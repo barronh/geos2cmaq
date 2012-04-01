@@ -94,8 +94,6 @@ C..SCRATCH LOCAL VARIABLES:
       INTEGER            :: DAYS_PER_YEAR
 
 
-      REAL, ALLOCATABLE  :: LON_GEO(   : , : )
-      REAL, ALLOCATABLE  :: LAT_GEO(   : , : )
       REAL, ALLOCATABLE  :: LON_CMAQ(  :  )
       REAL, ALLOCATABLE  :: LAT_CMAQ(  : )
 c     REAL, ALLOCATABLE  :: CGRID_GT( : , :, :, :, : )
@@ -217,64 +215,13 @@ C...get starting date and time
                  WRITE(LOGDEV, *)'MET_CRO3D file ends prior to START_DATE ',
      &           START_DATE
                  STOP
-        END IF
+       END IF
 
         WRITE(LOGDEV, *)'MET_CRO3D file ends before or on START_DATE ',
      &  START_DATE,' and START_TIME ', START_TIME
 
       bpchYear = ENVINT('BPCH_YEAR','Reset year for BPCH data',0,status) 
 
-ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-c  Define the lat/lons for the GEOCTM model grid
-ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-c Longitude sequence: -181.25 -178.75 .... 176.25 178.75     
-c Latitude sequence:   -90.00 -98.00 ....  87.0 89.0 90.0
-
-      ALLOCATE( LON_GEO( NCOLS_GEO, NROWS_GEO ) )
-      ALLOCATE( LAT_GEO( NCOLS_GEO, NROWS_GEO ) )
-
-c..temporarily set latitude of bottom row to -90.0
-      DO C = 1, NCOLS_GEO
-c        LAT_GEO( C, 1 ) = -91.0
-         !LAT_GEO( C, 1 ) = 9.0
-         ! now use center (hotp 6/17/2011)
-         LAT_GEO( C, 1 ) = (SKIP_ROWS-2)*DEL_LAT + 1.5
-      ENDDO
-
-c..set remaining rows by incrementing by delta latitude
-      DO R = 2, NROWS_GEO
-         DO C = 1, NCOLS_GEO
-            LAT_GEO( C, R ) =  LAT_GEO( C, R - 1 ) + DEL_LAT
-         ENDDO
-      ENDDO
-
-c..reset top & bottom rows to 89.0 & -89.0
-c     DO C = 1, NCOLS_GEO
-c        LAT_GEO( C, NROWS_GEO ) =  90.0
-c        LAT_GEO( C, 1         ) = -90.0
-c     ENDDO
-
-
-c..set left-most column to -181.25
-      DO R = 1, NROWS_GEO
-c        LON_GEO( 1, R ) = -181.25
-         ! Updated, hotp 6/17/2011
-         !LON_GEO( 1, R ) = -141.250
-         ! now use center of grid box
-         LON_GEO( 1, R ) = (SKIP_COLS-1) * DEL_LAT - 180.
-      ENDDO
-
-c..set remaining rows by incrementing by delta latitude
-      DO R = 1, NROWS_GEO
-         DO C = 2, NCOLS_GEO
-            LON_GEO( C, R ) = LON_GEO( C-1, R ) + DEL_LON
-         ENDDO
-      ENDDO
-
-      ! hotp
-!      print*,'Dimensions of GEOS-Chem data: ', NCOLS_GEO, NROWS_GEO
-!      print*,'Latitudes of GEOS-Chem grid: ',LAT_GEO
-!      print*,'Longitudes of GEOS-Chem grid: ', LON_GEO
 
 
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -481,9 +428,6 @@ C WTH assume BC step same as METCRO3D file
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Read in the GEO 3 hour data
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-
-!     ALLOCATE( CGRID_GT( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GT, 24 ) )
-!     ALLOCATE( CGRID_GS( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GS, 24 ) )
 
       Call LoadGEO( jdate, jtime, status )
 c     if( status.ne.0 ) EXIT

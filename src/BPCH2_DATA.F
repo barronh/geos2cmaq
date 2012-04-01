@@ -23,6 +23,8 @@ c..Horizontal Grid data
 
       REAL, PARAMETER    :: DEL_LON = 2.5
       REAL, PARAMETER    :: DEL_LAT = 2.0
+      REAL, ALLOCATABLE  :: LON_GEO(   : , : )
+      REAL, ALLOCATABLE  :: LAT_GEO(   : , : )
       REAL, ALLOCATABLE  :: CGRID_GT( : , :, :, :, : )
       REAL, ALLOCATABLE  :: CGRID_GS( : , :, :, :, : )
 
@@ -96,30 +98,7 @@ c SLN (14Mar2011) species list in GEOSChem tracer file
       !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       !  Subroutine to read the GEO monthly average data
       !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-      Subroutine LoadGEODIMS()
-      Integer GEO_UNIT
-      Character*(80) MSG      
-      Integer recDate, recTime, tDiff
-      Logical found
-      Character*(128) fname
-      Character*(40) ftype
-      Character*(80) toptitle
- 
-      Character*(20) modelName
-      Real modelRes(2)
-      Integer halfpolar
-      Integer center180
-      Integer myear,mnth, mday
- 
-      Character*40 category
-      Integer  tracer
-      Character*40 unit
-      Real*8   tau0, tau1
-      Character*40 reserved
-      Integer dim(6)
-      Integer skip
 
-      END SUBROUTINE
       Subroutine LoadGEO(JDATE, JTIME, status )
       Integer GEO_UNIT
 
@@ -255,6 +234,49 @@ C  read record of data values and fill array
           ALLOCATE( CGRID_GS( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GS, 24 ) )
           CGRID_GT = -0.00001
           CGRID_GS = -0.00001
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c  Define the lat/lons for the GEOCTM model grid
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c Longitude sequence: -181.25 -178.75 .... 176.25 178.75     
+c Latitude sequence:   -90.00 -98.00 ....  87.0 89.0 90.0
+    
+          ALLOCATE( LON_GEO( NCOLS_GEO, NROWS_GEO ) )
+          ALLOCATE( LAT_GEO( NCOLS_GEO, NROWS_GEO ) )
+    
+c..temporarily set latitude of bottom row to -90.0
+          DO C = 1, NCOLS_GEO
+             IF (HALFPOLAR.eq.1) THEN
+                 LAT_GEO( C, 1 ) = (SKIP_ROWS-1.5)*DEL_LAT + 0.25 * DEL_LAT
+             ELSE
+                 LAT_GEO( C, 1 ) = (SKIP_ROWS-1)*DEL_LAT
+             ENDIF
+          ENDDO
+    
+c..set remaining rows by incrementing by delta latitude
+          DO R = 2, NROWS_GEO
+             DO C = 1, NCOLS_GEO
+                LAT_GEO( C, R ) =  LAT_GEO( C, R - 1 ) + DEL_LAT
+             ENDDO
+          ENDDO
+        
+    
+c..set remaining rows by incrementing by delta latitude
+          DO R = 1, NROWS_GEO
+             LON_GEO( 1, R ) = (SKIP_COLS-1) * DEL_LAT - 180.
+          ENDDO
+    
+c..set remaining rows by incrementing by delta longitude
+          DO R = 1, NROWS_GEO
+             DO C = 2, NCOLS_GEO
+                LON_GEO( C, R ) = LON_GEO( C-1, R ) + DEL_LON
+             ENDDO
+          ENDDO
+
+c.. Printing for testing purposes    
+          print*,'Dimensions of GEOS-Chem data: ', NCOLS_GEO, NROWS_GEO
+          print*,'Latitudes of GEOS-Chem grid: ',LAT_GEO
+          print*,'Longitudes of GEOS-Chem grid: ', LON_GEO
+
           FIRSTREAD = .false. 
         ENDIF
         if( status.ne.0 ) then
