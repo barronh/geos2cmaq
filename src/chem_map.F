@@ -6,30 +6,26 @@ C
 C  FUNCTION: Converts GEO CTM species to CMAQ/SAPRC species 
 C              concentrations  
 C             
-C  Apr 2008 -- Sergey L. Napelenok
+C  Apr 2006 -- Sergey L. Napelenok
 C      Modified to describe GEOS-Chem files provided by Daven Henze
-C  Sep 2008 -- Sergey L. Napelenok
-C      Version for CB05CL_AE5_AQ mechanism
 C
 C  KEY SUBROURINES/FUNCTIONS CALLED:     
 C
 C***********************************************************************
+      
+      USE UTILIO_DEFN
       USE GEO_DATA
       USE CMAQ_DATA
 
       IMPLICIT NONE
 
 C..INCLUDE FILES:
-      INCLUDE SUBST_IOPARMS
-      INCLUDE SUBST_IOFDESC
-      INCLUDE SUBST_IODECL
-
 
 C..ARGUMENTS:
-      INTEGER      :: NBDY
-      REAL         :: BC1_GT_VERT( NBDY, NLAYS3D, NSPC_GT )
-      REAL         :: BC1_GS_VERT( NBDY, NLAYS3D, NSPC_GS )
-      REAL         :: BC2( NBDY, NLAYS3D, NSPC_CMAQ )
+      INTEGER, INTENT( IN ) :: NBDY
+      REAL, INTENT( IN )    :: BC1_GT_VERT( :, :, : )
+      REAL, INTENT( IN )    :: BC1_GS_VERT( :, :, : )
+      REAL, INTENT( INOUT ) :: BC2( :, :, : )
       
 
 C..PARAMETERS:
@@ -46,26 +42,38 @@ C..SCRATCH LOCAL VARIABLES:
       LOGICAL  LERROR
 
 C SLN - add PRES and TA in addition to DENS
-      REAL :: DENS( NBDY, NLAYS3D ) 
-      REAL :: PRES( NBDY, NLAYS3D )
-      REAL :: TA  ( NBDY, NLAYS3D )
+      REAL, ALLOCATABLE, SAVE :: DENS( :, : ) 
+      REAL, ALLOCATABLE, SAVE :: PRES( :, : )
+      REAL, ALLOCATABLE, SAVE :: TA  ( :, : )
 
 C SLN - conversion factors
-      REAL :: MOLTOPPM( NBDY, NLAYS3D )
-      REAL :: MOLTOUGM
-      REAL :: UGMTOPPM( NBDY, NLAYS3D )
+      REAL                    :: MOLTOUGM
+      REAL, ALLOCATABLE, SAVE :: MOLTOPPM( :, : )
+      REAL, ALLOCATABLE, SAVE :: UGMTOPPM( :, : )
 
       REAL FAC
+
+      LOGICAL, SAVE :: FIRSTCALL  = .TRUE.
 
 C**********************************************************************
       N = NBDY
       L = NLAYS3D 
       S = NSPC_CMAQ  
 
+      IF( FIRSTCALL )THEN
+      
+          FIRSTCALL = .FALSE.
+          
+          ALLOCATE( DENS( NBDY, NLAYS3D ), PRES( NBDY, NLAYS3D ), 
+     &                TA( NBDY, NLAYS3D ) )
+          
+          ALLOCATE( MOLTOPPM( NBDY, NLAYS3D ), UGMTOPPM( NBDY, NLAYS3D ) )
+
+      END IF
 
 C**********************************************************************
 C  read air density from MET_BDY_3D file (use for unit conversion)
-      IF(.NOT. INTERP3('MET_BDY_3D','DENS', PNAME, JDATE, JTIME,
+      IF(.NOT. INTERPB('MET_BDY_3D','DENS', PNAME, JDATE, JTIME,
      &                  N*L, DENS)) then
         IF(.NOT. Read3('MET_BDY_3D','DENS', ALLAYS3, JDATE, JTIME, DENS)) then
           Call m3err(pname, JDATE, JTIME,
@@ -73,14 +81,14 @@ C  read air density from MET_BDY_3D file (use for unit conversion)
           endif
         Endif
 C SLN - read PRES and TA also
-      IF(.NOT. INTERP3('MET_BDY_3D','PRES', PNAME, JDATE, JTIME,
+      IF(.NOT. INTERPB('MET_BDY_3D','PRES', PNAME, JDATE, JTIME,
      &                  N*L, PRES)) then
         IF(.NOT. Read3('MET_BDY_3D','PRES', ALLAYS3, JDATE, JTIME, PRES)) then
           Call m3err(pname, JDATE, JTIME,
      &      'Reading PRES from MET_BDY_3D file', .TRUE.)
           endif
         Endif
-      IF(.NOT. INTERP3('MET_BDY_3D','TA', PNAME, JDATE, JTIME,
+      IF(.NOT. INTERPB('MET_BDY_3D','TA', PNAME, JDATE, JTIME,
      &                  N*L, TA)) then
         IF(.NOT. Read3('MET_BDY_3D','TA', ALLAYS3, JDATE, JTIME, TA)) then
           Call m3err(pname, JDATE, JTIME,
@@ -91,7 +99,7 @@ C SLN - read PRES and TA also
 
 
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-c  Transform GEO species concs to CB05CL_AE_AQ species concs
+c  Transform GEO species concs to SAPRC species concs
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 c SLN - common conversion factors
@@ -103,9 +111,8 @@ c SLN - common conversion factors
 
       UGMTOPPM( 1:N, 1:L) = 8.314 * TA( 1:N, 1:L) / PRES( 1:N, 1:L)
                                                               ! used in ug/m3 to ppm conversion (needs MW)
-    
-c SLN - gas
 #include <MAPPING.MAP>
+
       RETURN
 
       End SUBROUTINE CHEM_MAP

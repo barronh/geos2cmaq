@@ -50,8 +50,8 @@ C..EXTERNAL FUNCTIONS: None
 C..SAVED LOCAL VARIABLES: None
 
 C..SCRATCH LOCAL VARIABLES:
-      CHARACTER*16  PNAME    ! Program Name
-      CHARACTER*80  MSG      ! Log message
+      CHARACTER( 16 )  PNAME    ! Program Name
+      CHARACTER( 80 ) MSG      ! Log message
 
       INTEGER I, M           ! Loop indices
       INTEGER NS             ! Rat Func temporary variable

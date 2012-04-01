@@ -6,6 +6,7 @@ parser.add_option("-t", dest = "tracerinfo", help = "path to tracerinfo.dat (def
 parser.add_option("-s", dest = "smvlog", help = "path to smv2.log (defaults to SOA from v9-01-01)", metavar="SMV", default = None)
 parser.add_option("-m", dest = "mechpath", help = "path to mechanism include files (e.g., mechpath*.EXT; defaults to cb05cl_ae6_aq)", metavar="MECHPATH", default = None)
 parser.add_option("-c", dest = "conversion", help = "path to converstion (i.e., mapping file)", metavar="CONV", default = None)
+parser.add_option("-e", dest = "extfiles", help = "use ext files instead of namelist", metavar="EXT", default = False, action = 'store_true')
 options, args = parser.parse_args()
 
 mapopt = dict([(o.dest, getattr(options, o.dest)) for o in parser.option_list[1:]])
@@ -15,25 +16,29 @@ tracerpath = options.tracerinfo or os.path.join(os.path.dirname(__file__), 'test
 smvpath = options.smvlog or os.path.join(os.path.dirname(__file__), 'testdata', 'smv2.log')
 mechpath = options.mechpath or os.path.join(os.path.dirname(__file__), 'testdata')
 if len(args) < 1:
-    parser.print_help()
+    parser.help()
     exit()
 else:
     out = args[0]
 from both import geos
-from mech import mech, mechinc
+from mech import mechnml, mechinc, mechext
 from map import map, trymap
+if options.extfiles:
+    mech = mechext
+else:
+    mech = mechnml
 go = geos(tracerpath,
           smvpath)
 if not os.path.exists(convpath):
-    if 'Y' == raw_input("Conversion path does not exist; type Y to create it or any other key to abort"):
+    if 'Y' == raw_input("Conversion path does not exist; type Y to create it or any other key to abort\n"):
         trymap(mech(mechpath), convpath, go)
     else:
         exit()
-mech_info = mechinc(mech(mechpath))
+mech_info = mechinc(mech(mechpath), convpath)
 cspec_info = go.cspec_info()
 tracer_info = go.tracer_info()
 mappings, profiles, nprofs = map(mech(mechpath), convpath, go)
-mech_info = ("      INTEGER, PARAMETER :: NSPC_DFLT = %d\n" % nprofs) + mech_info
+mech_info = ("      INTEGER :: NSPC_DFLT = %d\n" % nprofs) + mech_info
 if not os.path.exists(out):
     os.mkdir(out)
 outdir = out

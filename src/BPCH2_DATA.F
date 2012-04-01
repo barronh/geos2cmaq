@@ -15,16 +15,19 @@ C....................................................................
 c..Data file variable
       CHARACTER( 256 )   ::  GEO_INPUT_PATH
       CHARACTER( 256 )   ::  GEO_INPUT_FILE
- 
+      CHARACTER( 16 )    ::  GT_FILE = 'GT_FILE'
+      CHARACTER( 16 )    ::  GS_FILE = 'GS_FILE'
 c..Horizontal Grid data
-      INTEGER, PARAMETER :: NCOLS_GEO = 45
-      INTEGER, PARAMETER :: NROWS_GEO = 33
+      INTEGER :: NCOLS_GEO = 43
+      INTEGER :: NROWS_GEO = 29
 
       REAL, PARAMETER    :: DEL_LON = 2.5
       REAL, PARAMETER    :: DEL_LAT = 2.0
+      REAL, ALLOCATABLE  :: CGRID_GT( : , :, :, :, : )
+      REAL, ALLOCATABLE  :: CGRID_GS( : , :, :, :, : )
 
 c..Redefinition of record's year
-      INTEGER   bpchYear
+      INTEGER   bpchYear, SKIP_COLS, SKIP_ROWS
 
 c..Vertical coordinate levels
 
@@ -81,6 +84,7 @@ c SLN (14Mar2011) - sigma levels come from http://acmg.seas.harvard.edu/geos/doc
      &                                                    0.000000 / )
 
       REAL :: GEO_TOP = 0.01    ! pressure at the top in hPa
+      integer :: i, j, k
 
 
 c SLN (14Mar2011) species list in GEOSChem tracer file
@@ -92,20 +96,47 @@ c SLN (14Mar2011) species list in GEOSChem tracer file
       !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       !  Subroutine to read the GEO monthly average data
       !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-      Subroutine LoadGEO( CGRID_GT, CGRID_GS, JDATE, JTIME, status )
+      Subroutine LoadGEODIMS()
+      Integer GEO_UNIT
+      Character*(80) MSG      
+      Integer recDate, recTime, tDiff
+      Logical found
+      Character*(128) fname
+      Character*(40) ftype
+      Character*(80) toptitle
+ 
+      Character*(20) modelName
+      Real modelRes(2)
+      Integer halfpolar
+      Integer center180
+      Integer myear,mnth, mday
+ 
+      Character*40 category
+      Integer  tracer
+      Character*40 unit
+      Real*8   tau0, tau1
+      Character*40 reserved
+      Integer dim(6)
+      Integer skip
+
+      END SUBROUTINE
+      Subroutine LoadGEO(JDATE, JTIME, status )
+      Integer GEO_UNIT
+
+      USE UTILIO_DEFN
 
       Implicit None
 
+      Integer, Intent( IN  ) :: JDATE, JTIME
+      Integer, Intent( OUT ) :: status
       ! array argument
-      Real CGRID_GT( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GT, 24 )
-      Real CGRID_GS( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GS, 24 )
-
-      Integer JDATE, JTIME, status
+!     Real, Intent( OUT ) :: CGRID_GT( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GT, 24 )
+!     Real, Intent( OUT ) :: CGRID_GS( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GS, 24 )
 
       ! external functions
-      Integer GETEFILE
-      Integer SECSDIFF
-      Integer ENVINT   
+!      Integer GETEFILE
+!      Integer SECSDIFF
+!      Integer ENVINT   
       
       ! local variables
       Integer GEO_UNIT
@@ -130,8 +161,8 @@ c SLN (14Mar2011) species list in GEOSChem tracer file
       Integer dim(6)
       Integer skip
       Real blank
-
       Logical, save :: first = .true.
+      Logical, save :: firstread = .true.
 
       INTEGER  :: NCOUNT
 
@@ -162,29 +193,41 @@ c     mhour = JTIME / 10000
      &      myear, mnth, mday
 
       ! open data file 
-      GEO_UNIT=99
+      !GEO_UNIT=GETEFILE( GT_FILE, .TRUE., .FALSE., 'BPCH_BCON' )
+      GEO_UNIT = 98
       OPEN( GEO_UNIT,FILE=GEO_INPUT_FILE,STATUS='OLD',FORM='UNFORMATTED',
      &      ACCESS='SEQUENTIAL',iostat=status)
-      if( status.ne.0 ) then
-        MSG = 'ERROR: GEO_INPUT_PATH not defined'
+
+      if( GEO_UNIT .lt. 0 ) then
+        MSG =  'ERROR: Cannot open GEO_INPUT_FILE '
+     &      // GT_FILE
+     &      // ' not defined '
         CALL M3ERR ('BPCH_BCON', JDATE, JTIME, MSG, .TRUE. )
-        endif
+      else
+        MSG =  'Opening GEO_INPUT_FILE '
+     &      // GT_FILE
+        CALL M3MESG ( MSG )
+      endif
 
 C  read header record  
       read(GEO_UNIT, iostat=status) ftype
       if( status.ne.0 ) then
-        write(*,'(''**ERROR** cannot read header record 1'')')
+        write(*,'(''**ERROR** cannot read header record ftype'')')
+        found = .false.
         goto 100
         endif
 
       read(GEO_UNIT, iostat=status) toptitle
       if( status.ne.0 ) then
-        write(*,'(''**ERROR** cannot read header record 2'')')
+        write(*,'(''**ERROR** cannot read header record toptitle'')')
+        found = .false.
         goto 100
         endif
 
 C  read record of data values
-      CGRID_GT = -0.00001
+      IF (.not. FIRSTREAD) THEN
+         CGRID_GT = -0.00001
+      ENDIF
 
 C  read record of data values and fill array
       found = .false.
@@ -195,31 +238,46 @@ C  read record of data values and fill array
 
         read(GEO_UNIT,iostat=status) modelName, modelRes, halfpolar, center180   
         if( status.ne.0 ) then
-          write(*,'(''**ERROR** cannot read data header record 1'')')
+          write(*,'(''**ERROR** cannot read data model header record'')')
+          found = .false.
           goto 100
           endif
 
         read(GEO_UNIT,iostat=status) category, tracer, unit, tau0, tau1,         
      &                         reserved, dim, skip
+        IF (FIRSTREAD) THEN
+          SKIP_COLS = skip(1)
+          SKIP_ROWS = skip(2)
+          NCOLS_GEO = dim(1)
+          NROWS_GEO = dim(2)
+!         N_GEO_LAYS = dim(3)
+          ALLOCATE( CGRID_GT( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GT, 24 ) )
+          ALLOCATE( CGRID_GS( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GS, 24 ) )
+          CGRID_GT = -0.00001
+          CGRID_GS = -0.00001
+          FIRSTREAD = .false. 
+        ENDIF
         if( status.ne.0 ) then
-          write(*,'(''**ERROR** cannot read data header record 2'')')
+          write(*,'(''**ERROR** cannot read simulation header'')')
+          found = .false.
           goto 100
           endif
 
         ! skip species with less than N_GEO_LAYS layers
-        if( dim(3) .ne. N_GEO_LAYS ) then
+        if( dim(3) .gt. N_GEO_LAYS ) then
           read(GEO_UNIT) blank
           cycle
           endif
-
-        read(GEO_UNIT,iostat=status) buffer
+        
+        read(GEO_UNIT,iostat=status) (((buffer(i, j, k), i=1,dim(1)), j=1,dim(2)), k=1,dim(3))
         if( status.ne.0 ) then
          write(*,'(''**ERROR** cannot read data record for tracer'',i5)') NCOUNT
+         found = .false.
          goto 100
          endif
 
         found = .true.
-        CGRID_GT(:,:,:,NCOUNT,timestep) =  buffer
+        CGRID_GT(:,:,1:MIN(dim(3), N_GEO_LAYS),NCOUNT,timestep) =  buffer(:,:,1:MIN(dim(3), N_GEO_LAYS))
 
         enddo
 
@@ -227,6 +285,7 @@ C  read record of data values and fill array
 
   100 Close (GEO_UNIT)
       if( .NOT.found) then
+        print *, NCOUNT
         MSG = 'ERROR: Could not read GEO_INPUT_FILE'                           
         CALL M3ERR ('BPCH_BCON', JDATE, JTIME, MSG, .TRUE. ) 
         endif
@@ -241,13 +300,24 @@ c     mhour = JTIME / 10000
      &      myear, mnth, mday
 
       ! open data file 
-      GEO_UNIT=98
+
+
+!      GEO_UNIT=GETEFILE( GS_FILE, .TRUE., .FALSE., 'BPCH_BCON' )
+      Call ENVSTR('GEO_INPUT_PATH','Path of GEO_INPUT_FILE', ' ', GEO_INPUT_PATH, status)
+
       OPEN( GEO_UNIT,FILE=GEO_INPUT_FILE,STATUS='OLD',FORM='UNFORMATTED',
      &      ACCESS='SEQUENTIAL',iostat=status)
-      if( status.ne.0 ) then
-        MSG = 'ERROR: GEO_INPUT_PATH not defined'
+
+      if( GEO_UNIT .lt. 0 ) then
+        MSG =  'ERROR: Cannot open GEO_INPUT_FILE '
+     &      // GS_FILE
+     &      // ' not defined '
         CALL M3ERR ('BPCH_BCON', JDATE, JTIME, MSG, .TRUE. )
-        endif
+      else
+        MSG =  'Opening GEO_INPUT_FILE '
+     &      // TRIM( GEO_INPUT_FILE )
+        CALL M3MESG ( MSG )
+      endif
 
 C  read header record  
       read(GEO_UNIT, iostat=status) ftype
@@ -289,12 +359,12 @@ C  read record of data values and fill array
           endif
 
         ! skip species with less than N_GEO_LAYS layers
-        if( dim(3) .ne. N_GEO_LAYS ) then
+        if( dim(3) .gt. N_GEO_LAYS ) then
           read(GEO_UNIT) blank
           cycle
           endif
 
-        read(GEO_UNIT,iostat=status) buffer
+        read(GEO_UNIT,iostat=status) (((buffer(i, j, k), i=1,dim(1)), j=1,dim(2)), k=1,dim(3))
         if( status.ne.0 ) then
          write(*,'(''**ERROR** cannot read data record for tracer'',i5)') NCOUNT
          goto 101

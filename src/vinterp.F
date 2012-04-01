@@ -15,15 +15,13 @@ C                      November, 2002; also uses parts of CMAQ BCON
 C                      pre-processor
 C
 C***********************************************************************
+      USE UTILIO_DEFN
       USE GEO_DATA
       USE CMAQ_DATA
 
       IMPLICIT NONE
 
 C..INCLUDE FILES:
-      INCLUDE SUBST_IOPARMS     ! IOAPI parameters
-      INCLUDE SUBST_IOFDESC     ! IOAPI file description
-      INCLUDE SUBST_IODECL      ! IOAPI declarations
 
 C..ARGUMENTS:
 

@@ -13,25 +13,21 @@ C
 C  REVISION HISTORY: Created October, 2004 by J Gipson
 C
 C***********************************************************************
+      USE UTILIO_DEFN
       USE CMAQ_DATA
 
       IMPLICIT NONE
 
 C..INCLUDE FILES:
-      INCLUDE SUBST_IOPARMS     ! IOAPI parameters
-      INCLUDE SUBST_IOFDESC     ! IOAPI file description
-      INCLUDE SUBST_IODECL      ! IOAPI declarations
 
 C..ARGUMENTS:
 
-      INTEGER  NEDGES         ! No. of boundary edges
-      INTEGER  NSPC_PROF      ! No. of species
-      INTEGER  NLAYS_PROF     ! No. of layers
-
-      REAL PROF_LEVS( * )
-
-      REAL BC1P( NEDGES, NLAYS_PROF, NSPC_PROF )  ! GEO conc bndy concs
-      REAL BC2P( NEDGES, NLAYS3D,    NSPC_PROF )  ! Interpolated bndy concs
+      INTEGER, INTENT( IN ) ::  NEDGES           ! No. of boundary edges
+      INTEGER, INTENT( IN ) ::  NSPC_PROF        ! No. of species
+      INTEGER, INTENT( IN ) ::  NLAYS_PROF       ! No. of layers
+      REAL,    INTENT( IN ) ::  PROF_LEVS(  : )
+      REAL,    INTENT( IN ) ::  BC1P( :, :, : )  ! profile conc bndy concs
+      REAL,   INTENT( OUT ) ::  BC2P( :, :, : )  ! Interpolated bndy concs
 
 C..PARAMETERS:
       CHARACTER( 16 ), PARAMETER :: PNAME = 'VINTERP_PROF'  ! Program Name
@@ -42,7 +38,7 @@ C..EXTERNAL FUNCTIONS:
 C..SAVED LOCAL VARIABLES:
 
 C..SCRATCH LOCAL VARIABLES:
-      CHARACTER*80  MSG            ! Log message
+      CHARACTER( 132 )  MSG            ! Log message
 
       INTEGER L              ! Loop index for vertical layers
       INTEGER N              ! Loop index for boundary cells
@@ -72,12 +68,14 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       LDEC = .FALSE.
       LINC = .FALSE.
 
+      BC2P = 0.0
+      
       IF( NLAYS3D .EQ. NLAYS_PROF ) THEN
 
          DO E = 1, NEDGES
             DO L = 1, NLAYS3D
                DO N = 1, NSPC_PROF
-                  BC2P( E, L, S ) = BC1P( E, L, S )
+                  BC2P( L, E, S ) = BC1P( L, E, S )
                ENDDO
             ENDDO
 
@@ -115,31 +113,31 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
          DO N = 1, NEDGES
 
             DO L = 1, NLAYS_PROF
-               WORKA( L ) = BC1P( N, L, S )
+               WORKA( L ) = BC1P( L, N, S )
             ENDDO
 
             DO L = 1, NLAYS3D
 
                IF( NLAYS_PROF .EQ. 1 ) THEN
 
-                  BC2P( N, L, S ) = WORKA( 1 )
+                  BC2P( L, N, S ) = WORKA( 1 )
 
                ELSE
 
                   X3 = X3_NEW( L )
 
                   IF( LINC .AND. X3 .LE. X3_OLD( 1 ) ) THEN
-                     BC2P( N, L, S ) = WORKA( 1 )
+                     BC2P( L, N, S ) = WORKA( 1 )
                   ELSEIF( LDEC .AND. X3 .GE. X3_OLD( 1 ) ) THEN
-                     BC2P( N, L, S ) = WORKA( 1 )
+                     BC2P( L, N, S ) = WORKA( 1 )
                   ELSEIF( LINC .AND. X3 .GE. X3_OLD( NLAYS_PROF ) ) THEN
-                     BC2P( N, L, S ) = WORKA( NLAYS_PROF )
+                     BC2P( L, N, S ) = WORKA( NLAYS_PROF )
                   ELSEIF( LDEC .AND. X3 .LE. X3_OLD( NLAYS_PROF ) ) THEN
-                     BC2P( N, L, S ) = WORKA( NLAYS_PROF )
+                     BC2P( L, N, S ) = WORKA( NLAYS_PROF )
                   ELSE
                      CALL LR_INTERP( L_RATINT, X3_OLD, WORKA, NLAYS_PROF,
      &                                  X3, Y, DELY )
-                     BC2P( N, L, S ) = Y
+                     BC2P( L, N, S ) = Y
                   ENDIF
 
                ENDIF

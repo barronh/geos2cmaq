@@ -1,5 +1,4 @@
 from both import geos
-from mech import mech
 from warnings import warn
 import re
 
@@ -17,11 +16,20 @@ def trymap(spc_data, mappath, mapo):
 def map(spc_data, mappath, mapo):
     intext = [kv for kv in [kv.split(',') for kv in file(mappath).read().strip().split('\n')[1:]] if len(kv) > 1 and kv[-1].strip() != '']
     ks = set([k for k, v in intext])
+    mechspcs = set(reduce(list.__add__, [spc_dat.keys() for spc_dat in spc_data.values()]))
+    mapped = list(ks)
+    mapped.sort()
+    nmapped = list(mechspcs.difference(ks))
+    nmapped.sort()
+    print 'Mapped MECH:', ' '.join(mapped)
+    print
+    print 'Unmapped MECH:', ' '.join(nmapped)
+    print
     outs = []
     prof_ids = []
     prof_maps = []
     for k, v in intext:
-        if any([k in spc_dat for spc_dat in spc_data.values()]):
+        if k in mechspcs:
             start = '      BC2( 1:N, 1:L, C_%s )' % k
             if k in ks:
                 start += '= (%s)'
@@ -54,4 +62,5 @@ if __name__ == '__main__':
     from both import geos
     go = geos('testdata/tracerinfo.dat',
                   'testdata/smv2.log')
+    from mech import mechext as mech
     map(mech('testdata'), 'mapping/saprc07t.csv', go)

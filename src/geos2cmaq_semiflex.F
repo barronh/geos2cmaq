@@ -11,15 +11,17 @@ C  July 2011 -- HOT Pye
 C     Changed GEOS-Chem lat/lon information from corners to centers
 C
 C***********************************************************************
+      USE UTILIO_DEFN
       USE GEO_DATA
+      USE CGRID_SPCS
       USE CMAQ_DATA
 
       IMPLICIT NONE
 
 C..INCLUDE FILES:
-      INCLUDE SUBST_IOPARMS
-      INCLUDE SUBST_IOFDESC
-      INCLUDE SUBST_IODECL
+!      INCLUDE SUBST_IOPARMS
+!      INCLUDE SUBST_IOFDESC
+!      INCLUDE SUBST_IODECL
 
 
 C..ARGUMENTS: None
@@ -29,9 +31,9 @@ C..PARAMETERS:
       CHARACTER( 16 ), PARAMETER :: MET_BDY_3D = 'MET_BDY_3D'
 
 C..EXTERNAL FUNCTIONS:
-      INTEGER  GETEFILE
-      INTEGER  INDEX1
-      INTEGER  ENVINT
+!      INTEGER  GETEFILE
+!     INTEGER  INDEX1
+!      INTEGER  ENVINT
  
 C..SAVED LOCAL VARIABLES: None
 
@@ -50,6 +52,16 @@ C..SCRATCH LOCAL VARIABLES:
       INTEGER            ::  IND
       INTEGER            ::  JDATE = 0
       INTEGER            ::  JTIME = 0
+      INTEGER            ::  EDATE = 0
+      INTEGER            ::  ETIME = 0
+      INTEGER            ::  MDATE 
+      INTEGER            ::  MTIME 
+
+
+      INTEGER            ::  START_DATE = 0
+      INTEGER            ::  START_TIME = 0
+      INTEGER            ::  STOP_DATE  = 0
+      INTEGER            ::  STOP_TIME  = 0
       INTEGER            ::  LOGDEV           ! Unit number for output log
       INTEGER            ::  NBDY
       INTEGER            ::  NCELL
@@ -58,8 +70,10 @@ C..SCRATCH LOCAL VARIABLES:
       INTEGER            ::  STRT
       INTEGER            ::  FINI
       INTEGER            ::  STATUS
-      INTEGER            ::  NSTEPS
-      INTEGER            ::  tStep
+      INTEGER            ::  NSTEPS  = 24
+      INTEGER            ::  NT
+      INTEGER            ::  MET_TSTEP
+      INTEGER            ::  BC_TSTEP
 
       INTEGER, ALLOCATABLE :: COL_LOC( : )
       INTEGER, ALLOCATABLE :: ROW_LOC( : )
@@ -76,13 +90,16 @@ C..SCRATCH LOCAL VARIABLES:
       REAL               :: MAXC
       REAL               :: MINC
       REAL               :: FAC
+      
+      INTEGER            :: DAYS_PER_YEAR
+
 
       REAL, ALLOCATABLE  :: LON_GEO(   : , : )
       REAL, ALLOCATABLE  :: LAT_GEO(   : , : )
       REAL, ALLOCATABLE  :: LON_CMAQ(  :  )
       REAL, ALLOCATABLE  :: LAT_CMAQ(  : )
-      REAL, ALLOCATABLE  :: CGRID_GT( : , :, :, :, : )
-      REAL, ALLOCATABLE  :: CGRID_GS( : , :, :, :, : )
+c     REAL, ALLOCATABLE  :: CGRID_GT( : , :, :, :, : )
+c     REAL, ALLOCATABLE  :: CGRID_GS( : , :, :, :, : )
 
       REAL, ALLOCATABLE  :: BDY_GS( : , : , : )
       REAL, ALLOCATABLE  :: BDY_GT( : , : , : )
@@ -95,11 +112,35 @@ C..SCRATCH LOCAL VARIABLES:
 c     integer :: nc=55
 c     integer :: hsp=3
 c     integer :: csp=1
+      INTERFACE
+        SUBROUTINE CMAQ_PROFILE_BDY( LOGUNIT, N_BDY, BDY_OUT )
+           USE UTILIO_DEFN
+           USE CGRID_SPCS
+           USE CMAQ_DATA
+           IMPLICIT NONE     
+           INTEGER, INTENT( IN  ) :: LOGUNIT
+           INTEGER, INTENT( IN  ) :: N_BDY
+           REAL,    INTENT( OUT ) :: BDY_OUT( :, :, :)
+        END SUBROUTINE CMAQ_PROFILE_BDY
+        SUBROUTINE CHEM_MAP( NBDY, BC1_GT_VERT, BC1_GS_VERT, BC2, 
+     &                     JDATE, JTIME )
+           USE UTILIO_DEFN
+           USE GEO_DATA
+           USE CMAQ_DATA
+           IMPLICIT NONE
+           INTEGER, INTENT( IN ) :: NBDY
+           Integer, Intent( IN  ) :: JDATE, JTIME
+           REAL, INTENT( IN )    :: BC1_GT_VERT( :, :, : )
+           REAL, INTENT( IN )    :: BC1_GS_VERT( :, :, : )
+           REAL, INTENT( INOUT ) :: BC2( :, :, : )
+        END SUBROUTINE CHEM_MAP
+      END INTERFACE 
 
 C**********************************************************************
 
 
       LOGDEV = INIT3()
+
 
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Open the METBDY3D file & get grid description and date/time
@@ -115,16 +156,71 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
          CALL M3ERR( PNAME, JDATE, JTIME, MSG, .TRUE. )
       ENDIF
 
+      jdate      = SDATE3D
+      jtime       = STIME3D
 
+      edate      = SDATE3D
+      etime      = STIME3D
+      
+      MET_TSTEP = TSTEP3D
+      
+      DO NT = 1, MXREC3D - 1
+         Call Nextime( edate, etime, MET_TSTEP )
+      END Do
+
+      IF( MOD( INT(jdate/1000), 4) .EQ. 0 )THEN
+          DAYS_PER_YEAR = 366
+      ELSE
+          DAYS_PER_YEAR = 365
+      END IF
+         
 C...get starting date and time
-c      jdate = ENVINT('START_DATE','Start date for period', SDATE3D, STATUS)
 
-      jdate = SDATE3D
+       START_DATE = ENVINT('START_DATE','Start Date for period', START_DATE, STATUS)
+       START_TIME  = ENVINT('START_TIME','Start Time for period', START_TIME, STATUS)
+       
+       IF( START_DATE .LE. 0 )THEN
+           MSG = 'BAD or UNDEFINED value for environment varaible START_DATE'
+           CALL M3EXIT(PNAME, JDATE, JTIME, MSG, XSTAT1 )
+       END IF
 
-      !jtime = ENVINT('START_TIME','Start time for period', STIME3D, STATUS)
-      !nsteps= ENVINT('NSTEPS','Number of 3-hours steps', 9, STATUS)
-      jtime = 0
-      nsteps = 24
+       STOP_DATE = ENVINT('STOP_DATE','Stop Date for period', STOP_DATE, STATUS)
+       STOP_TIME = ENVINT('STOP_TIME', 'Stop Time for period', STOP_TIME, STATUS)
+
+       IF( STOP_DATE .LE. 0 )THEN
+           MSG = 'BAD or UNDEFINED value for environment varaible STOP_DATE'
+           CALL M3EXIT(PNAME, JDATE, JTIME, MSG, XSTAT1 )
+       END IF
+
+      IF( MOD(jdate, 1000) .EQ. MOD(STOP_DATE, 1000)  .AND.  jtime .GT. STOP_TIME )THEN
+              WRITE(LOGDEV, *)'METCRO3D file begins after to STOP_DATE ',
+     &        STOP_DATE,' and STOP_TIME ', STOP_TIME
+              STOP
+       END IF
+
+       WRITE(LOGDEV, *)'METCRO3D file begins before or on STOP_DATE ',
+     & STOP_DATE,' and STOP_TIME ', STOP_TIME
+
+      IF( MOD(MOD(jdate, 1000), DAYS_PER_YEAR) .GT. MOD(STOP_DATE, 1000) )THEN
+             WRITE(LOGDEV, *)'METCRO3D file begins after to STOP_DATE ', STOP_DATE
+             STOP
+      ENDIF
+
+      IF( MOD(edate, 1000) .EQ. MOD(START_DATE, 1000)  .AND. etime .LT. START_TIME )THEN
+                WRITE(LOGDEV, *)'MET_CRO3D file ends prior to START_DATE ',
+     &          START_DATE,' and START_TIME ', START_TIME
+                STOP
+       END IF
+
+       IF( MOD(edate, 1000) .LT. MOD(MOD(START_DATE, 1000), DAYS_PER_YEAR) .AND.
+     &        INT(jdate/1000) .EQ.  INT(edate/1000) )THEN
+                 WRITE(LOGDEV, *)'MET_CRO3D file ends prior to START_DATE ',
+     &           START_DATE
+                 STOP
+        END IF
+
+        WRITE(LOGDEV, *)'MET_CRO3D file ends before or on START_DATE ',
+     &  START_DATE,' and START_TIME ', START_TIME
 
       bpchYear = ENVINT('BPCH_YEAR','Reset year for BPCH data',0,status) 
 
@@ -142,7 +238,7 @@ c..temporarily set latitude of bottom row to -90.0
 c        LAT_GEO( C, 1 ) = -91.0
          !LAT_GEO( C, 1 ) = 9.0
          ! now use center (hotp 6/17/2011)
-         LAT_GEO( C, 1 ) = 10.0E0
+         LAT_GEO( C, 1 ) = (SKIP_ROWS-2)*DEL_LAT + 1.5
       ENDDO
 
 c..set remaining rows by incrementing by delta latitude
@@ -165,7 +261,7 @@ c        LON_GEO( 1, R ) = -181.25
          ! Updated, hotp 6/17/2011
          !LON_GEO( 1, R ) = -141.250
          ! now use center of grid box
-         LON_GEO( 1, R ) = -137.5E0
+         LON_GEO( 1, R ) = (SKIP_COLS-1) * DEL_LAT - 180.
       ENDDO
 
 c..set remaining rows by incrementing by delta latitude
@@ -176,9 +272,9 @@ c..set remaining rows by incrementing by delta latitude
       ENDDO
 
       ! hotp
-      print*,'Dimensions of GEOS-Chem data: ', NCOLS_GEO, NROWS_GEO
-      print*,'Latitudes of GEOS-Chem grid: ',LAT_GEO
-      print*,'Longitudes of GEOS-Chem grid: ', LON_GEO
+!      print*,'Dimensions of GEOS-Chem data: ', NCOLS_GEO, NROWS_GEO
+!      print*,'Latitudes of GEOS-Chem grid: ',LAT_GEO
+!      print*,'Longitudes of GEOS-Chem grid: ', LON_GEO
 
 
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -256,16 +352,28 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Open output file
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+C Set CGRID mechanism
+      IF ( .NOT. CGRID_SPCS_INIT() ) THEN
+          MSG = 'Error in CGRID_SPCS:CGRID_SPCS_INIT'
+          CALL M3EXIT ( PNAME, JDATE, JTIME, MSG, XSTAT1  )
+      END IF
+
+      CALL DEFINE_CMAQ_UNITS
+      CALL CMAQ_PROFILE_BDY( LOGDEV, NBDY, BDY3 )  
+
       NVARS3D = NSPC_CMAQ + NSPC_DFLT
 c SLN - replace TSTEP3D to 10000 from 30000
-      TSTEP3D = 10000
-      SDATE3D = jdate
-      STIME3D = jtime
+C WTH assume BC step same as METCRO3D file
+      BC_TSTEP = MET_TSTEP
+
       DO V = 1, NSPC_CMAQ
          VNAME3D( V ) = CMAQ_SNAME( V )
          VDESC3D( V ) = CMAQ_LNAME( V )
          UNITS3D( V ) = CMAQ_UNITS( V )
          VTYPE3D( V ) = M3REAL
+!         write( logdev, '(i3,1x,3(a16,1x),i3)')V,CMAQ_SNAME( V ),CMAQ_LNAME( V ),
+!     &                                         CMAQ_UNITS( V ), M3REAL
       ENDDO
                                                                 
       N = 0                                                     
@@ -275,17 +383,93 @@ c SLN - replace TSTEP3D to 10000 from 30000
          VDESC3D( V ) = DFLT_LNAME( N )                         
          UNITS3D( V ) = DFLT_UNITS( N )                         
          VTYPE3D( V ) = M3REAL                                  
+!         write( logdev, '(i3,1x,3(a16,1x),i3)')N,DFLT_SNAME( N ),DFLT_LNAME( N ),
+!     &                                   DFLT_UNITS( N ),M3REAL
       ENDDO                                                     
-                                                                
-      FTYPE3D = BNDARY3                                         
-      NTHIK3D = 1                                               
+      
+      DO V = 1, NVARS3D
+!         write( logdev, '(i3,1x,3(a16,1x),i3)')V,VNAME3D( V ),VDESC3D( V ),
+!     &                                  UNITS3D( V ),VTYPE3D( V )
+      END DO                                                          
 
-      IF( .NOT. OPEN3( BC_FNAME, FSNEW3, PNAME ) ) THEN         
-        IF( .NOT. OPEN3( BC_FNAME, FSRDWR3, PNAME ) ) THEN      
-           MSG = 'Could not open nor create ' //  BC_FNAME // ' file '        
-           CALL M3ERR( PNAME, 0, 0, MSG, .TRUE. )               
-           ENDIF                                                
-        ENDIF                                                   
+      IF( MOD(jdate, 1000) .EQ. MOD(STOP_DATE, 1000)  .AND.  jtime .GT. STOP_TIME )THEN
+              WRITE(LOGDEV, *)'GEOSCHEM files begin after STOP_DATE ',
+     &        STOP_DATE,' and STOP_TIME ', STOP_TIME
+              STOP
+       END IF
+
+      IF( MOD(MOD(jdate, 1000), DAYS_PER_YEAR) .GT. MOD(STOP_DATE, 1000) )THEN
+             WRITE(LOGDEV, *)'GEOSCHEM files begin after STOP_DATE ', STOP_DATE
+             STOP
+      ENDIF
+
+       WRITE(LOGDEV, *)'GEOSCHEM files begin before or on  STOP_DATE ',
+     & STOP_DATE,' and STOP_TIME ', STOP_TIME
+
+      
+      edate      = jdate
+      etime      = jtime
+
+      DO NT = 1, NSTEPS - 1
+         Call Nextime( edate, etime, TSTEP3D )
+      END Do
+
+      IF( MOD(edate, 1000) .EQ. MOD(START_DATE, 1000)  .AND.  etime .LT. START_TIME )THEN
+              WRITE(LOGDEV, *)'GEOSCHEM files end prior to START_DATE ',
+     &        START_DATE,' and START_TIME ', START_TIME
+              STOP
+       END IF
+
+      IF( MOD(edate, 1000) .LT. MOD(MOD(START_DATE, 1000), DAYS_PER_YEAR)  .AND.
+     &        INT(jdate/1000) .EQ.  INT(edate/1000) )THEN
+             WRITE(LOGDEV, *)'GEOSCHEM files end prior to START_DATE ', START_DATE
+             STOP
+      ENDIF
+
+       WRITE(LOGDEV, *)'GEOSCHEM files end before START_DATE ',
+     & START_DATE,' and START_TIME ', START_TIME
+
+
+      IF(  OPEN3( BC_FNAME, FSRDWR3, PNAME )  ) THEN      
+              MDATE    = SDATE3D
+              MTIME    = STIME3D
+              BC_TSTEP = TSTEP3D
+              DO NT = 1, 0 ! NSTEPS ! MXREC3D - 1
+                 CALL NEXTIME( MDATE, MTIME, TSTEP3D )
+              END DO
+              IF( MOD( MDATE, 1000) .EQ. 1 .AND. MTIME .EQ. 0 )THEN 
+!       weird fix when MDATE start at new years
+                 IF( MXREC3D .GT. 0 )THEN
+                     MDATE = MDATE + 1000
+                     WRITE(LOGDEV, *)'Adjusting OUTPUT DATE from ', MDATE - 1000,
+     &               ' to ',MDATE
+                 END IF
+              END IF
+              MSG = 'Found and updating existing BCFILE ' //  TRIM( BC_FNAME )
+              WRITE( LOGDEV, * )MSG 
+              WRITE(LOGDEV, '(a,i8,a,i8)')'Updating from MDATE = ', MDATE,' at MTIME = ',
+     &                                     MTIME
+              IF( ( MDATE .GT. STOP_DATE ) .OR. (MDATE .EQ. STOP_DATE .AND. MTIME .GT. STOP_TIME) )THEN
+                 WRITE( LOGDEV, '(a,i8,a,i8)')'ERROR: exceeds STOP_DATE ', STOP_DATE, ' and STOP_TIME ', STOP_TIME
+                 STOP
+              END IF
+      ELSE
+              FTYPE3D = BNDARY3                                         
+              NTHIK3D = 1                                               
+              SDATE3D = START_DATE
+              STIME3D = START_TIME
+              WRITE(LOGDEV, * ) ' OPENING BC_FILE for ', SDATE3D, STIME3D
+              WRITE( LOGDEV, * )TRIM( BC_FNAME ), ' not found. Attempt to create new file.'
+              WRITE(LOGDEV, '(a,i8,a,i8)')'Starting from START_DATE = ', SDATE3D,' at START_TIME = ',
+     &                                     STIME3D
+              TSTEP3D = BC_TSTEP
+              MDATE   = START_DATE
+              MTIME   = START_TIME
+              IF( .NOT. OPEN3( BC_FNAME, FSNEW3, PNAME ) ) THEN         
+                  MSG = 'Could not open nor create ' // TRIM( BC_FNAME ) // ' file '        
+                  CALL M3ERR( PNAME, 0, 0, MSG, .TRUE. )               
+              END IF
+      END IF                                                   
 
       ! allocate arrays for output data
       ALLOCATE( BDY_GT_VERT( NBDY, NLAYS3D, NSPC_GT ) )
@@ -294,15 +478,14 @@ c SLN - replace TSTEP3D to 10000 from 30000
       ALLOCATE( BDY3( NBDY, NLAYS3D, NSPC_DFLT ) )
       ALLOCATE( BCOUT( NBDY, NLAYS3D ) )
 
-
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Read in the GEO 3 hour data
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
-      ALLOCATE( CGRID_GT( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GT, 24 ) )
-      ALLOCATE( CGRID_GS( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GS, 24 ) )
+!     ALLOCATE( CGRID_GT( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GT, 24 ) )
+!     ALLOCATE( CGRID_GS( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GS, 24 ) )
 
-      Call LoadGEO( CGRID_GT, CGRID_GS, jdate, jtime, status )
+      Call LoadGEO( jdate, jtime, status )
 c     if( status.ne.0 ) EXIT
 
 C SLN - hack this in to read 24 hour GC files cuz there is no time for better
@@ -314,8 +497,25 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  start time loop to read and process each timestep  
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
-      Do tStep=1,NSTEPS ! time loop
+      LOOP_TIME : Do NT= 1, NSTEPS ! time loop
 
+       IF( MOD(jdate, 1000) .LT. MOD(MDATE, 1000) )THEN
+         Call Nextime( jdate, jtime, MET_TSTEP )
+         WRITE(MSG, * )'Skipping DATE on GEOSCHEM files', jdate,mdate
+         CALL M3WARN(PNAME, JDATE, JTIME, MSG )
+         CYCLE LOOP_TIME
+       END IF
+       
+       IF( MOD(jdate, 1000) .EQ. MOD(MDATE, 1000) .AND. jtime .LT. mtime )THEN
+         Call Nextime( jdate, jtime, MET_TSTEP )
+         WRITE(MSG, * )'Skipping DATE and TIME on GEOSCHEM files', jdate, jtime
+         CALL M3WARN(PNAME, JDATE, JTIME, MSG )
+         CYCLE LOOP_TIME
+       END IF
+
+        WRITE(MSG, * )'Writing DATE from GEOSCHEM files'
+        CALL M3WARN(PNAME, JDATE, JTIME, MSG )
+       
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Set boundary concs using GEO species & GEO vertical structure
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -324,10 +524,10 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
              C = COL_LOC( N )
              R = ROW_LOC( N )
                DO S = 1, NSPC_GT
-                 BDY_GT( N, L, S ) = CGRID_GT( C, R, L, S, tStep )
+                 BDY_GT( N, L, S ) = CGRID_GT( C, R, L, S, NT )
                ENDDO
                DO S = 1, NSPC_GS
-                 BDY_GS( N, L, S ) = CGRID_GS( C, R, L, S, tStep )
+                 BDY_GS( N, L, S ) = CGRID_GS( C, R, L, S, NT )
                ENDDO
            ENDDO
        ENDDO
@@ -372,7 +572,9 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Add defaults for species not available from GEO files
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-      if(NSPC_DFLT.gt.0) CALL DEFAULTS( LOGDEV, NBDY, BDY3 )
+      IF( NSPC_DFLT .GT. 0 )THEN
+        CALL CMAQ_PROFILE_BDY( LOGDEV, NBDY, BDY3 )  
+      END IF                                                              
 
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Write to output file 
@@ -382,31 +584,53 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       L = NLAYS3D
 
       S = 0
-      DO V = 1, NVARS3D
+      LOOP_VAR: DO V = 1, NVARS3D
 
          IF( V .LE. NSPC_CMAQ ) THEN
 
-             BCOUT( 1:N, 1:L ) = BDY2( 1:N, 1:L, V )
+             BCOUT( 1:NBDY, 1:NLAYS3D ) = BDY2( 1:NBDY, 1:NLAYS3D, V )
+
          ELSE
 
              S = S + 1
-             BCOUT( 1:N, 1:L ) = BDY3( 1:N, 1:L, S )
+             BCOUT( 1:NBDY, 1:NLAYS3D ) = BDY3( 1:NBDY, 1:NLAYS3D, S )
+
+!             DO  N = 1, NBDY
+!                IF(  BCOUT( N, 1 ) .LE. 1.0E-12 )THEN
+!                    WRITE( LOGDEV, * )TRIM(DFLT_LNAME( S )),' at N = ', N,
+!     &              ' equals ',BCOUT( N, 1 ),' in layer 1.'
+!                END IF
+!             END DO
 
          ENDIF
 
-         IF( .NOT. WRITE3( BC_FNAME, VNAME3D( V ), JDATE, JTIME,
+         IF( .NOT. WRITE3( BC_FNAME, VNAME3D( V ), MDATE, MTIME,
      &                     BCOUT( 1, 1 ) ) ) THEN
-            MSG =  'Could not WRITE species ' //  VNAME3D( V ) // 
-     &             'to file ' // BC_FNAME 
-            CALL M3ERR( PNAME, JDATE, JTIME, MSG, .TRUE. )
-         ENDIF
+            MSG =  'Could not WRITE species ' //  TRIM( VNAME3D( V ) ) // 
+     &                 ' to file ' // TRIM( BC_FNAME )
+            CALL M3ERR( PNAME, MDATE, MTIME, MSG, .TRUE. )
+         END IF
       
-      ENDDO
+      END DO LOOP_VAR
 
       ! advance to next time step
-      Call Nextime( jdate, jtime, TSTEP3D )
+         CALL NEXTIME( MDATE, MTIME, BC_TSTEP)
+         Call Nextime( jdate, jtime, MET_TSTEP )
 
-      EndDo  ! time loop
+          IF( MOD(jdate, 1000) .EQ. MOD(STOP_DATE, 1000) .AND. jtime .GT. STOP_TIME )THEN
+               MSG = 'Stopping at MET and GEOSCHEM data.'
+               CALL M3WARN(PNAME, JDATE, JTIME, MSG )
+               EXIT LOOP_TIME
+           END IF
+
+           IF( MOD(jdate, 1000) .GT. STOP_DATE )THEN
+               MSG = 'Stopping at MET and GEOSCHEM data.'
+               CALL M3WARN(PNAME, JDATE, JTIME, MSG )
+               EXIT LOOP_TIME
+           END IF
+
+  
+      END DO LOOP_TIME ! time loop
 
       DEALLOCATE( BDY_GT_VERT )
       DEALLOCATE( BDY_GS_VERT )

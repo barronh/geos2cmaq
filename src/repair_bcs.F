@@ -10,6 +10,13 @@ C
 C 
 C  Sep 2008 -- Sergey L. Napelenok
 C      Modified for AE5
+C  Jun 2011 -- HOT Pye
+C      Modified for AE6 (Ca, K, Mg, Fe, Al, Si, APNCOM, ASEACATK)
+C      Updated organic aerosol density
+C  July 2011 -- HOT Pye
+C      Added ATIJ and AMNJ
+C  Aug 2011 -- HOT Pye
+C      Replaced AORGPA with APOC for AERO6
 C
 C-----------------------------------------------------------------------
       SUBROUTINE REPAIR( BC_FILE )
@@ -29,7 +36,8 @@ C...........PARAMETERS and their descriptions:
       REAL,   PARAMETER :: RHONH4  = 1.8e3 !  bulk density of aerosol ammonium
       REAL,   PARAMETER :: RHONO3  = 1.8e3 ! bulk density of aerosol nitrate
       REAL,   PARAMETER :: RHOH2O  = 1.0e3 !  bulk density of aerosol water
-      REAL,   PARAMETER :: RHOORG  = 2.0e3 ! bulk density for aerosol organics
+      !REAL,   PARAMETER :: RHOORG  = 2.0e3 ! bulk density for aerosol organics
+      REAL,   PARAMETER :: RHOORG  = 1.3e3 ! bulk density for aerosol organics following Carlton et al. 2010
       REAL,   PARAMETER :: RHOSOIL = 2.6e3 ! bulk density for aerosol soil dust
       REAL,   PARAMETER :: RHOSEAS = 2.2e3 ! bulk density for marine aerosol
       REAL,   PARAMETER :: RHOANTH = 2.2e3 ! bulk density for anthropogenic aerosol
@@ -75,8 +83,8 @@ C...........LOCAL VARIABLES (scalars) and their descriptions:
       INTEGER  VCLK       ! coarse mode chloride aerosol conc
       INTEGER  VCLJ       ! Accumulation mode chloride aerosol conc
       INTEGER  VCLI       ! Aitken mode chloride aerosol conc
-      INTEGER  VORGPAJ    ! Accumulation mode primary anthropogenic organic aerosol conc
-      INTEGER  VORGPAI    ! Aitken mode primary anthropogenic organic aerosol conc
+      INTEGER  VPOCJ      ! Accumulation mode primary anthropogenic organic aerosol conc
+      INTEGER  VPOCI      ! Aitken mode primary anthropogenic organic aerosol conc
 c     INTEGER  VORGAJ     ! Accumulation mode anthropogenic organic aerosol conc
 c     INTEGER  VORGAI     ! Aitken mode anthropogenic organic aerosol conc
 c     INTEGER  VORGBJ     ! Accumulation mode biogenic organic aerosol conc
@@ -95,6 +103,20 @@ c     INTEGER  VORGBI     ! Aitken mode biogenic organic aerosol conc
       INTEGER  VSURFAC    ! Index for accumulatin mode surface area
       INTEGER  VPHGJ      ! Accumulation mode particulate mercury
       INTEGER  VPHGI      ! Aitken mode particulate mercury
+      ! AERO6 updated (hotp 6/21/11)
+      INTEGER  VSEACATK  ! Coarse mode seasalt cations
+      INTEGER  VNCOMI    ! Aitken mode non-carbon organic matter (OM-OC)
+      INTEGER  VNCOMJ    ! Accumulation mode non-carbon organic matter (OM-OC)
+      INTEGER  VCAJ      ! Accumulation mode calcium
+      INTEGER  VKJ       ! Accumulation mode potassium
+      INTEGER  VMGJ      ! Accumulation mode magnesium
+      INTEGER  VFEJ      ! Accumulation mode iron
+      INTEGER  VALJ      ! Accumulation mode aluminum
+      INTEGER  VSIJ      ! Accumulation mode silicon
+      INTEGER  VOTHRJ    ! Accumulation mode unspeciated
+      ! updates 7/28/11
+      INTEGER  VTIJ      ! Accumulation mode titanium
+      INTEGER  VMNJ      ! Accumulation mode magnesium
 
       INTEGER   VALKJ     !   Accumulation mode SOA from "long" alkanes
       INTEGER   VXYL1J    !   Accumulation mode SOA from low-yield arom 
@@ -174,7 +196,7 @@ C...get indices for the Aitken mode aerosols
 
       VNO3AI = INDEX1( 'ANO3I', NVARS, VNAME3D )
 
-      VORGPAI = INDEX1( 'AORGPAI', NVARS, VNAME3D )
+      VPOCI  = INDEX1( 'APOCI', NVARS, VNAME3D )
 
 c     VORGAI = INDEX1( 'AORGAI', NVARS, VNAME3D )
 
@@ -190,6 +212,9 @@ c     VORGBI = INDEX1( 'AORGBI', NVARS, VNAME3D )
 
       VPHGI = INDEX1( 'APHGI', NVARS, VNAME3D )
 
+      ! AERO6, hotp
+      VNCOMI = INDEX1( 'APNCOMI', NVARS, VNAME3D )
+
 C...get indices for the accumulation mode aerosols
 
       VSO4AJ = INDEX1( 'ASO4J', NVARS, VNAME3D )
@@ -198,7 +223,7 @@ C...get indices for the accumulation mode aerosols
 
       VNO3AJ = INDEX1( 'ANO3J', NVARS, VNAME3D )
 
-      VORGPAJ = INDEX1( 'AORGPAJ', NVARS, VNAME3D )
+      VPOCJ  = INDEX1( 'APOCJ', NVARS, VNAME3D )
 
 c     VORGAJ = INDEX1( 'AORGAJ', NVARS, VNAME3D )
 
@@ -213,6 +238,19 @@ c     VORGBJ = INDEX1( 'AORGBJ', NVARS, VNAME3D )
       VCLJ = INDEX1( 'ACLJ', NVARS, VNAME3D )
 
       VPHGJ = INDEX1( 'APHGJ', NVARS, VNAME3D )
+
+      ! AERO6, hotp
+      VCAJ    = INDEX1( 'ACAJ',   NVARS, VNAME3D )
+      VKJ     = INDEX1( 'AKJ',    NVARS, VNAME3D )
+      VMGJ    = INDEX1( 'AMGJ',   NVARS, VNAME3D )
+      VFEJ    = INDEX1( 'AFEJ',   NVARS, VNAME3D )
+      VALJ    = INDEX1( 'AALJ',   NVARS, VNAME3D )
+      VSIJ    = INDEX1( 'ASIJ',   NVARS, VNAME3D )
+      VOTHRJ  = INDEX1( 'AOTHRJ', NVARS, VNAME3D )
+      VNCOMJ  = INDEX1( 'APNCOMJ',NVARS, VNAME3D )
+      ! 7/28/11
+      VTIJ    = INDEX1( 'ATIJ'   ,NVARS, VNAME3D )
+      VMNJ    = INDEX1( 'AMNJ'   ,NVARS, VNAME3D )
 
       VALKJ   = INDEX1( 'VALKJ',  NVARS, VNAME3D )
       VXYL1J  = INDEX1( 'VXYL1J', NVARS, VNAME3D )
@@ -249,6 +287,9 @@ C...get indices for the coarse mode aerosols
       VSO4AK = INDEX1( 'ASO4K', NVARS, VNAME3D )
 
       VNO3AK = INDEX1( 'ANO3K', NVARS, VNAME3D )
+
+      ! AERO6, hotp
+      VSEACATK = INDEX1( 'ASEACATK', NVARS, VNAME3D )
 
 C...get indices for the number concentration
 
@@ -292,7 +333,7 @@ C... Aitken mode
                IF ( VSO4AI  .NE. 0 ) M3ATKN = M3ATKN + SO4FAC  * BC_VALUES( ICELL, ILAY, VSO4AI  )
                IF ( VNH4AI  .NE. 0 ) M3ATKN = M3ATKN + NH4FAC  * BC_VALUES( ICELL, ILAY, VNH4AI  )
                IF ( VNO3AI  .NE. 0 ) M3ATKN = M3ATKN + NO3FAC  * BC_VALUES( ICELL, ILAY, VNO3AI  )
-               IF ( VORGPAI .NE. 0 ) M3ATKN = M3ATKN + ORGFAC  * BC_VALUES( ICELL, ILAY, VORGPAI )
+               IF ( VPOCI   .NE. 0 ) M3ATKN = M3ATKN + ORGFAC  * BC_VALUES( ICELL, ILAY, VPOCI )
 c              IF ( VORGAI  .NE. 0 ) M3ATKN = M3ATKN + ORGFAC  * BC_VALUES( ICELL, ILAY, VORGAI  )
 c              IF ( VORGBI  .NE. 0 ) M3ATKN = M3ATKN + ORGFAC  * BC_VALUES( ICELL, ILAY, VORGBI  )
                IF ( VP25AI  .NE. 0 ) M3ATKN = M3ATKN + ANTHFAC * BC_VALUES( ICELL, ILAY, VP25AI  )
@@ -300,6 +341,7 @@ c              IF ( VORGBI  .NE. 0 ) M3ATKN = M3ATKN + ORGFAC  * BC_VALUES( ICEL
                IF ( VNAI    .NE. 0 ) M3ATKN = M3ATKN + SEASFAC * BC_VALUES( ICELL, ILAY, VNAI    )
                IF ( VCLI    .NE. 0 ) M3ATKN = M3ATKN + SEASFAC * BC_VALUES( ICELL, ILAY, VCLI    )
                IF ( VPHGI   .NE. 0 ) M3ATKN = M3ATKN + PHGFAC  * BC_VALUES( ICELL, ILAY, VPHGI   )
+               IF ( VNCOMI  .NE. 0 ) M3ATKN = M3ATKN + ORGFAC  * BC_VALUES( ICELL, ILAY, VNCOMI  ) ! AERO6, hotp
 
 C... accumulation mode
 
@@ -307,7 +349,7 @@ C... accumulation mode
                IF ( VSO4AJ  .NE. 0 ) M3ACC = M3ACC + SO4FAC  * BC_VALUES( ICELL, ILAY, VSO4AJ  )
                IF ( VNH4AJ  .NE. 0 ) M3ACC = M3ACC + NH4FAC  * BC_VALUES( ICELL, ILAY, VNH4AJ  )
                IF ( VNO3AJ  .NE. 0 ) M3ACC = M3ACC + NO3FAC  * BC_VALUES( ICELL, ILAY, VNO3AJ  )
-               IF ( VORGPAJ .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VORGPAJ )
+               IF ( VPOCJ   .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VPOCJ )
 c              IF ( VORGAJ  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VORGAJ  )
 c              IF ( VORGBJ  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VORGBJ  )
                IF ( VP25AJ  .NE. 0 ) M3ACC = M3ACC + ANTHFAC * BC_VALUES( ICELL, ILAY, VP25AJ  )
@@ -334,7 +376,17 @@ c              IF ( VORGBJ  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL,
                IF ( VOLGAJ  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VOLGAJ  )
                IF ( VOLGBJ  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VOLGBJ  )
                IF ( VORGCJ  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VORGCJ  )
-
+               IF ( VCAJ    .NE. 0 ) M3ACC = M3ACC + SOILFAC * BC_VALUES( ICELL, ILAY, VCAJ    ) ! AERO6, hotp
+               IF ( VKJ     .NE. 0 ) M3ACC = M3ACC + SOILFAC * BC_VALUES( ICELL, ILAY, VKJ     )
+               IF ( VMGJ    .NE. 0 ) M3ACC = M3ACC + SEASFAC * BC_VALUES( ICELL, ILAY, VMGJ    )
+               IF ( VFEJ    .NE. 0 ) M3ACC = M3ACC + SOILFAC * BC_VALUES( ICELL, ILAY, VFEJ    )
+               IF ( VALJ    .NE. 0 ) M3ACC = M3ACC + SOILFAC * BC_VALUES( ICELL, ILAY, VALJ    )
+               IF ( VSIJ    .NE. 0 ) M3ACC = M3ACC + SOILFAC * BC_VALUES( ICELL, ILAY, VSIJ    )
+               IF ( VOTHRJ  .NE. 0 ) M3ACC = M3ACC + SOILFAC * BC_VALUES( ICELL, ILAY, VOTHRJ  )
+               IF ( VNCOMJ  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VNCOMJ  )
+               ! 7/28/11
+               IF ( VTIJ    .NE. 0 ) M3ACC = M3ACC + SOILFAC * BC_VALUES( ICELL, ILAY, VTIJ    )
+               IF ( VMNJ    .NE. 0 ) M3ACC = M3ACC + SOILFAC * BC_VALUES( ICELL, ILAY, VMNJ    )
 C... coarse mode
 
                M3COR = 0.0
@@ -345,6 +397,7 @@ C... coarse mode
                IF ( VCLK    .NE. 0 ) M3COR = M3COR + SEASFAC * BC_VALUES( ICELL, ILAY, VCLK   )
                IF ( VSO4AK  .NE. 0 ) M3COR = M3COR + SO4FAC  * BC_VALUES( ICELL, ILAY, VSO4AK )
                IF ( VNO3AK  .NE. 0 ) M3COR = M3COR + NO3FAC  * BC_VALUES( ICELL, ILAY, VNO3AK )
+               IF ( VSEACATK.NE. 0 ) M3COR = M3COR + SEASFAC * BC_VALUES( ICELL, ILAY, VSEACATK ) ! AERO6, hotp
 
 C...Calculate number concentrations [ # / m**3 ]
 

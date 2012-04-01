@@ -50,16 +50,16 @@ C..ARGUMENTS:
       INTEGER COL       ! No. of columns 
       INTEGER ROW       ! No. of rows
 
-      REAL*8 P_ALP      ! 1st map projection parameter
-      REAL*8 P_BET      ! 2nd map projection parameter
-      REAL*8 P_GAM      ! 3rd map projection parameter
+      REAL( 8 ) P_ALP      ! 1st map projection parameter
+      REAL( 8 ) P_BET      ! 2nd map projection parameter
+      REAL( 8 ) P_GAM      ! 3rd map projection parameter
 
-      REAL*8 XCELL      ! X-dimension of cell (m)
-      REAL*8 XCENT      ! Longitude of coordinate system center
-      REAL*8 XORIG      ! X-origin of grid
-      REAL*8 YCELL      ! Y-dimension of cell (m)
-      REAL*8 YCENT      ! Latitude of coordinate system center
-      REAL*8 YORIG      ! Y-origin of grid
+      REAL( 8 ) XCELL      ! X-dimension of cell (m)
+      REAL( 8 ) XCENT      ! Longitude of coordinate system center
+      REAL( 8 ) XORIG      ! X-origin of grid
+      REAL( 8 ) YCELL      ! Y-dimension of cell (m)
+      REAL( 8 ) YCENT      ! Latitude of coordinate system center
+      REAL( 8 ) YORIG      ! Y-origin of grid
 
       REAL LAT          ! Output latitude
       REAL LON          ! Output longitude
@@ -73,8 +73,8 @@ C..EXTERNAL FUNCTIONS:
 C..SAVED LOCAL VARIABLES: None
 
 C..SCRATCH LOCAL VARIABLES:
-      CHARACTER*16  PNAME    ! Program Name
-      CHARACTER*80  MSG      ! Log message
+      CHARACTER( 16  )  PNAME    ! Program Name
+      CHARACTER( 132 )  MSG      ! Log message
 
       INTEGER ZONE           ! UTM zone
 
@@ -100,14 +100,14 @@ C**********************************************************************
      &                     SNGL( XCENT ), 
      &                     SNGL( YCENT ) ) ) THEN
             MSG = 'Lambert projection setup error for CTM CONC file'
-            CALL M3EXIT( PNAME, 0, 0, MSG, 2 )
+            CALL M3EXIT( PNAME, 0, 0, MSG, XSTAT2 )
          ENDIF
       
          X = X0 + FLOAT( COL ) * XCELL
          Y = Y0 + FLOAT( ROW ) * YCELL
          IF( .NOT. LAM2LL( X, Y, LON, LAT ) ) THEN
             MSG = 'Lambert conversion error for CTM CONC file'
-            CALL M3EXIT( PNAME, 0, 0, MSG, 2 )
+            CALL M3EXIT( PNAME, 0, 0, MSG, XSTAT2 )
          ENDIF                          
 
       ELSEIF ( GDTYP .EQ. UTMGRD3 ) THEN   ! UTM Coordinates
@@ -120,7 +120,7 @@ C**********************************************************************
 
       ELSE                                   !  Unsupported Coordinates
 
-         CALL M3EXIT( PNAME, 0, 0, MSG, 2 )
+         CALL M3EXIT( PNAME, 0, 0, MSG, XSTAT2 )
 
       ENDIF 
 

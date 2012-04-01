@@ -1,0 +1,184 @@
+
+C***********************************************************************
+C   Portions of Models-3/CMAQ software were developed or based on      *
+C   information from various groups: Federal Government employees,     *
+C   contractors working on a United States Government contract, and    *
+C   non-Federal sources (including research institutions).  These      *
+C   research institutions have given the Government permission to      *
+C   use, prepare derivative works, and distribute copies of their      *
+C   work in Models-3/CMAQ to the public and to permit others to do     *
+C   so.  EPA therefore grants similar permissions for use of the       *
+C   Models-3/CMAQ software, but users are requested to provide copies  *
+C   of derivative works to the Government without restrictions as to   *
+C   use by others.  Users are responsible for acquiring their own      *
+C   copies of commercial software associated with Models-3/CMAQ and    *
+C   for complying with vendor requirements.  Software copyrights by    *
+C   the MCNC Environmental Modeling Center are used with their         *
+C   permissions subject to the above restrictions.                     *
+C***********************************************************************
+
+C RCS file, release, date & time of last delta, author, state, [and locker]
+C $Header: /project/work/rep/BCON/src/driver/bcon/ngc_spc_map.F,v 1.3 2002/04/12 14:19:20 yoj Exp $ 
+
+C what(1) key, module and SID; SCCS file; date and time of last delta:
+C %W% %P% %G% %U%
+
+
+      SUBROUTINE NGC_SPC_MAP( LOGUNIT, NSPCS_IN, N_GC_OUT, NSPCS_OUT, 
+     &                        SPMAP, SFAC, LCONV, LSCALE, LCONVSP,
+     &                        EXT_IC_NAME, INFL_SP_NAME, SPNAME_OUT )
+
+
+C*************************************************************************
+C
+C  FUNCTION: Load arrays for non-gas phase species that are used
+C            to compute BCs from the BC input file(s)         
+C             
+C  PRECONDITIONS: None
+C 
+C  KEY SUBROUTINES/FUNCTIONS CALLED: None  
+C
+C  REVISION HISTORY: Prototype created by Jerry Gipson, January, 1998
+C
+C*************************************************************************
+
+      USE UTILIO_DEFN
+      USE CGRID_SPCS
+      USE CMAQ_DATA
+
+
+      IMPLICIT NONE     
+
+C..INCLUDE FILES:
+
+C..ARGUMENTS:
+      CHARACTER( 16 ), INTENT( IN ) :: EXT_IC_NAME( : )   ! Names of species in *.EXTs
+      CHARACTER( 16 ), INTENT( IN ) :: INFL_SP_NAME( : )  ! Species names on input file
+      INTEGER, INTENT( IN ) :: LOGUNIT                    ! Unit number for output log
+      INTEGER, INTENT( IN ) :: N_GC_OUT                   ! No. of GC species for conversion 
+      INTEGER, INTENT( IN ) :: NSPCS_IN                   ! No. of species in the IC input file(s)
+      LOGICAL, INTENT( IN ) :: LCONV                      ! Flag for mech conversion
+      INTEGER,        INTENT( INOUT ) :: NSPCS_OUT       ! Number of BC species on output file(s)
+      INTEGER,        INTENT( INOUT ) :: SPMAP( : )      ! Map to CTM species from IC species
+      REAL,           INTENT( INOUT ) :: SFAC( : )       ! Input species conc scale factor
+      LOGICAL,        INTENT( INOUT ) :: LCONVSP( : )    ! Flag for species mech conversion
+      LOGICAL,        INTENT( INOUT ) :: LSCALE( : )     ! Flag for scaling input concs 
+      CHARACTER( 16), INTENT( INOUT ) :: SPNAME_OUT( : ) ! Output file species names
+
+
+
+C..PARAMETERS:
+
+C..EXTERNAL FUNCTIONS: 
+       INTEGER FINDEX  
+      
+C..SAVED LOCAL VARIABLES: None
+
+C..SCRATCH LOCAL VARIABLES:
+      CHARACTER( 16 ) :: PNAME = 'NGC_SPC_MAP' ! Program name
+
+      INTEGER ICBC_INDX    ! Index for ICBC *.EXT arrays
+      INTEGER IND_IC       ! Index for IC
+      INTEGER IND_SUR      ! Index for ICBC surrogate
+      INTEGER N            ! Loop index
+      INTEGER NSP          ! Output species counter
+
+C**********************************************************************
+
+      NSP = N_GC_OUT
+
+      DO N = NSP + 1, NSPCSD
+         LSCALE( N ) = .FALSE.
+         LCONVSP( N ) = .FALSE.
+         SFAC( N )   = 1.0
+      ENDDO
+
+c..aerosol species
+      DO N = 1, N_AE_SPC
+
+         IND_IC = INDEX1( AE_SPC( N ), NSPCS_IN, INFL_SP_NAME )
+         ICBC_INDX = FINDEX( N, N_AE_ICBC, AE_ICBC_MAP )
+
+         IF(ICBC_INDX .NE. 0 ) THEN
+            IND_SUR = INDEX1( AE_ICBC( ICBC_INDX ) , NSPCS_IN, INFL_SP_NAME )
+         ELSE
+            IND_SUR = 0
+         ENDIF
+
+         IF( IND_IC .GT. 0 .OR. IND_SUR .GT. 0 ) THEN
+            NSP = NSP + 1
+            IF( IND_SUR .GT. 0 ) THEN
+               SPMAP( NSP ) = IND_SUR
+               IF( AE_ICBC_FAC( ICBC_INDX ) .NE. 1.0 ) THEN
+                  LSCALE( NSP ) = .TRUE.
+                  SFAC( NSP )   = AE_ICBC_FAC( ICBC_INDX )
+               ENDIF
+            ELSE
+               SPMAP( NSP )   = IND_IC
+            ENDIF
+            SPNAME_OUT( NSP ) = INFL_SP_NAME( SPMAP( NSP ) )
+         ENDIF
+
+      ENDDO    
+         
+c..nonreactive species
+      DO N = 1, N_NR_SPC
+
+         IND_IC = INDEX1( NR_SPC( N ), NSPCS_IN, INFL_SP_NAME )
+         ICBC_INDX = FINDEX( N, N_NR_ICBC, NR_ICBC_MAP )
+
+         IF(ICBC_INDX .NE. 0 ) THEN
+            IND_SUR = INDEX1( NR_ICBC( ICBC_INDX ) , NSPCS_IN, INFL_SP_NAME )
+         ELSE
+            IND_SUR = 0
+         ENDIF
+
+         IF( IND_IC .GT. 0 .OR. IND_SUR .GT. 0 ) THEN
+            NSP = NSP + 1
+            IF( IND_SUR .GT. 0 ) THEN
+               SPMAP( NSP ) = IND_SUR
+               IF( NR_ICBC_FAC( ICBC_INDX ) .NE. 1.0 ) THEN
+                  LSCALE( NSP ) = .TRUE.
+                  SFAC( NSP )   = NR_ICBC_FAC( ICBC_INDX )
+               ENDIF
+            ELSE
+               SPMAP( NSP )   = IND_IC
+            ENDIF
+            SPNAME_OUT( NSP ) = INFL_SP_NAME( SPMAP( NSP ) )
+         ENDIF
+
+      ENDDO    
+
+c..Tracer species
+      DO N = 1, N_TR_SPC
+
+         IND_IC = INDEX1( TR_SPC( N ), NSPCS_IN, INFL_SP_NAME )
+         ICBC_INDX = FINDEX( N, N_TR_ICBC, TR_ICBC_MAP )
+
+         IF(ICBC_INDX .NE. 0 ) THEN
+            IND_SUR = INDEX1( TR_ICBC( ICBC_INDX ) , NSPCS_IN, INFL_SP_NAME )
+         ELSE
+            IND_SUR = 0
+         ENDIF
+
+         IF( IND_IC .GT. 0 .OR. IND_SUR .GT. 0 ) THEN
+            NSP = NSP + 1
+            IF( IND_SUR .GT. 0 ) THEN
+               SPMAP( NSP ) = IND_SUR
+               IF( TR_ICBC_FAC( ICBC_INDX ) .NE. 1.0 ) THEN
+                  LSCALE( NSP ) = .TRUE.
+                  SFAC( NSP )   = NR_ICBC_FAC( ICBC_INDX )
+               ENDIF
+            ELSE
+               SPMAP( NSP )   = IND_IC
+            ENDIF
+            SPNAME_OUT( NSP ) = INFL_SP_NAME( SPMAP( NSP ) )
+         ENDIF
+
+      ENDDO   
+
+      NSPCS_OUT = NSP
+
+      RETURN
+
+      END 

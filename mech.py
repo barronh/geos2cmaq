@@ -1,6 +1,10 @@
 from glob import glob
 import os
-def mech(inpath):
+import numpy as np
+from StringIO import StringIO
+import csv
+
+def mechext(inpath):
     spc_paths = glob(os.path.join(inpath, '*_SPC.EXT'))
     spc_files = dict([(os.path.basename(p)[:2], p) for p in spc_paths])
     spc_data = {}
@@ -10,16 +14,39 @@ def mech(inpath):
         spc_data[k] =  spc_dat
     return spc_data
 
-def mechinc(indict):
+def mechnml(inpath):
+    spc_paths = glob(os.path.join(inpath, '*.nml'))
+    spc_files = dict([(os.path.basename(p)[:2], p) for p in spc_paths])
+    spc_data = {}
+    for k in spc_files.keys():
+        path = spc_files[k]
+        start = False
+        lines = []
+        for line in file(path).readlines():
+            if start and '/' in line:
+                break
+            if start:
+                lines.append(line[1:])
+            if 'TYPE_MATRIX' in line:
+                start = True
+        datstr = ''.join(lines).replace(',', '')
+        data = np.loadtxt(StringIO(datstr), delimiter = ':', usecols = [0, 1], dtype = np.dtype([('NAME', 'S120'), ('MOLWT', 'd')]))
+        spc_dat = dict(data)
+        spc_data[k] = spc_dat 
+    return spc_data
+
+def mechinc(indict, convpath):
     units = []
     names = []
     out = ""
+    mech_spcs = [row[0].strip() for row in csv.reader(file(convpath, 'r'), delimiter = ',') if row[1].strip() not in ('', 'PROFILE', 'profile')]
     for spc_typ, spc_dat in indict.iteritems():
         if spc_typ == 'AE':
             unit = "micrograms / m**3".ljust(16)
         else:
             unit = 'ppmV'.ljust(16)
         for spcn, spcw in spc_dat.iteritems():
+            if not spcn in mech_spcs: continue
             units.append('# / m**3' if spcn[:3] == 'NUM' and spc_typ == 'AE' else unit)
             names.append(spcn.ljust(16))
     out += "      INTEGER, PARAMETER :: NSPC_CMAQ = %d\n" % len(names)
@@ -41,4 +68,5 @@ def mechinc(indict):
         
 
 if __name__ == "__main__":
-    x = mech('testdata')
+    x = mechnml('testdata')
+    y = mech('testdata')
