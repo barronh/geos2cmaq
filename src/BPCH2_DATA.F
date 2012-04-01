@@ -381,6 +381,10 @@ C  read record of data values and fill array
 
         read(GEO_UNIT,iostat=status) category, tracer, unit, tau0, tau1,         
      &                         reserved, dim, skip
+        IF (tracer.ne.NCOUNT) THEN
+          write(*,'(''**ERROR** Tracer expected (i4); tracer found (i4)'')'), NCOUNT, tracer
+          STOP
+        ENDIF
         if( status.ne.0 ) then
           write(*,'(''**ERROR** cannot read data header record 2'')')
           goto 101
