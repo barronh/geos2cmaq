@@ -273,6 +273,12 @@ c..West Edge
       ENDDO
 
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c  Read in the GEO 3 hour data
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+      Call LoadGEO( jdate, jtime, status )
+
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Map the CTM file LAT/LONs to the BC file LAT/LONs
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       ALLOCATE( COL_LOC( NBDY ) )
@@ -425,11 +431,6 @@ C WTH assume BC step same as METCRO3D file
       ALLOCATE( BDY3( NBDY, NLAYS3D, NSPC_DFLT ) )
       ALLOCATE( BCOUT( NBDY, NLAYS3D ) )
 
-ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-c  Read in the GEO 3 hour data
-ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-
-      Call LoadGEO( jdate, jtime, status )
 c     if( status.ne.0 ) EXIT
 
 C SLN - hack this in to read 24 hour GC files cuz there is no time for better

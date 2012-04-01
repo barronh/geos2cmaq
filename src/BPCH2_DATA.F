@@ -142,7 +142,7 @@ c SLN (14Mar2011) species list in GEOSChem tracer file
       Logical, save :: first = .true.
       Logical, save :: firstread = .true.
 
-      INTEGER  :: NCOUNT
+      INTEGER  :: NCOUNT, R, C
 
 
       Real buffer( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS )
@@ -228,6 +228,10 @@ C  read record of data values and fill array
           SKIP_ROWS = dim(5)
           NCOLS_GEO = dim(1)
           NROWS_GEO = dim(2)
+          print*,'Dimensions of GEOS-Chem data: ', NCOLS_GEO, NROWS_GEO
+          print*,'Output excludes (NCOLS, NROWS): ', SKIP_COLS, SKIP_ROWS
+          print*,'Resolution (hard coded lat/lon): ', DEL_LAT, DEL_LON
+          print*,'Poles are at half resolution: ', halfpolar
 !         N_GEO_LAYS = dim(3)
           ALLOCATE( CGRID_GT( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GT, 24 ) )
           ALLOCATE( CGRID_GS( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GS, 24 ) )
@@ -245,9 +249,13 @@ c Latitude sequence:   -90.00 -98.00 ....  87.0 89.0 90.0
 c..temporarily set latitude of bottom row to -90.0
           DO C = 1, NCOLS_GEO
              IF (HALFPOLAR.eq.1) THEN
-                 LAT_GEO( C, 1 ) = (SKIP_ROWS-1.5)*DEL_LAT + 0.25 * DEL_LAT
+                 IF (SKIP_ROWS.eq.1) THEN
+                   LAT_GEO( C, 1 ) = -89.5
+                 ELSE
+                   LAT_GEO( C, 1 ) = (SKIP_ROWS-1)*DEL_LAT - 0.25 * DEL_LAT - 89.5
+                 ENDIF
              ELSE
-                 LAT_GEO( C, 1 ) = (SKIP_ROWS-1)*DEL_LAT
+                 LAT_GEO( C, 1 ) = (SKIP_ROWS-1)*DEL_LAT - 89
              ENDIF
           ENDDO
     
@@ -261,7 +269,7 @@ c..set remaining rows by incrementing by delta latitude
     
 c..set remaining rows by incrementing by delta latitude
           DO R = 1, NROWS_GEO
-             LON_GEO( 1, R ) = (SKIP_COLS-1) * DEL_LAT - 180.
+             LON_GEO( 1, R ) = (SKIP_COLS-1) * DEL_LON - 180.
           ENDDO
     
 c..set remaining rows by incrementing by delta longitude
@@ -272,10 +280,8 @@ c..set remaining rows by incrementing by delta longitude
           ENDDO
 
 c.. Printing for testing purposes    
-          print*,'Dimensions of GEOS-Chem data: ', NCOLS_GEO, NROWS_GEO
-          print*,'Latitudes of GEOS-Chem grid: ',LAT_GEO
-          print*,'Longitudes of GEOS-Chem grid: ', LON_GEO
-          print*,'Resolution (hard coded lat/lon): ', DEL_LAT, DEL_LON
+          print*,'Latitudes of GEOS-Chem grid: ',(LAT_GEO(1,R),R=1,NROWS_GEO)
+          print*,'Longitudes of GEOS-Chem grid: ', (LON_GEO(C, 1),C=1,NCOLS_GEO)
           
           FIRSTREAD = .false. 
         ENDIF
