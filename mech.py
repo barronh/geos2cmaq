@@ -36,10 +36,11 @@ def mechnml(inpath):
     return spc_data
 
 def mechinc(indict, convpath):
+    from map import mapping
     units = []
     names = []
     out = ""
-    mech_spcs = [row[0].strip() for row in csv.reader(file(convpath, 'r'), delimiter = ',') if row[1].strip() not in ('', 'PROFILE', 'profile')]
+    mech_spcs = [k for k, v in mapping(convpath)]
     for spc_typ, spc_dat in indict.iteritems():
         if spc_typ == 'AE':
             unit = "micrograms / m**3".ljust(16)

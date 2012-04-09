@@ -13,8 +13,18 @@ def trymap(spc_data, mappath, mapo):
                 outf.write('%s,\n' % (spcn, ))
     outf.close()
 
+def mapping(mappath):
+    import csv
+    rows = csv.reader(file(mappath))
+    rows.next() # ignore header
+    rows = [[c.strip() for c in row] for row in rows if row[0][0] != '#'] # Ignore comments
+    rows = [row for row in rows if len(row) > 1] # Ignore unmapped
+    rows = [row for row in rows if row[1].upper() not in ('PROFILE', '')] # Ignore profiles
+    return rows
+
 def map(spc_data, mappath, mapo):
-    intext = [kv for kv in [kv.split(',') for kv in file(mappath).read().strip().split('\n')[1:]] if len(kv) > 1 and kv[-1].strip() != '']
+    intext = mapping(mappath)
+    # old mapping reader - [kv for kv in [kv.split(',') for kv in file(mappath).read().strip().split('\n')[1:] if kv[0] != '#'] if len(kv) > 1 and kv[-1].strip() != '']
     ks = set([k for k, v in intext])
     mechspcs = set(reduce(list.__add__, [spc_dat.keys() for spc_dat in spc_data.values()]))
     mapped = list(ks)
