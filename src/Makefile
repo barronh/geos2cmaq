@@ -1,5 +1,5 @@
 #MODEL = GC2CMAQ_SAPRC99.exe
- MODEL = GC2CMAQ_SAPRC07T.exe
+ MODEL = GC2CMAQ.exe
 
 #compiler = pgf
  compiler = ifc

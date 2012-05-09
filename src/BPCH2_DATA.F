@@ -18,8 +18,8 @@ c..Data file variable
       CHARACTER( 16 )    ::  GT_FILE = 'GT_FILE'
       CHARACTER( 16 )    ::  GS_FILE = 'GS_FILE'
 c..Horizontal Grid data
-      INTEGER :: NCOLS_GEO = 43
-      INTEGER :: NROWS_GEO = 29
+      INTEGER :: NCOLS_GEO
+      INTEGER :: NROWS_GEO
 
       REAL, PARAMETER    :: DEL_LON = 2.5
       REAL, PARAMETER    :: DEL_LAT = 2.0
@@ -134,7 +134,7 @@ c SLN (14Mar2011) species list in GEOSChem tracer file
       Character*40 category
       Integer  tracer
       Character*40 unit
-      Real*8   tau0, tau1
+      Real*8   tau0, tau1, ntau0, ntau1
       Character*40 reserved
       Integer dim(6)
       Integer skip
@@ -145,7 +145,7 @@ c SLN (14Mar2011) species list in GEOSChem tracer file
       INTEGER  :: NCOUNT, R, C
 
 
-      Real buffer( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS )
+      Real, ALLOCATABLE :: buffer( :, :, :)
 
       integer timestep
 
@@ -237,6 +237,7 @@ C  read record of data values and fill array
           print*,'Resolution (hard coded lat/lon): ', DEL_LAT, DEL_LON
           print*,'Poles are at half resolution: ', halfpolar
 !         N_GEO_LAYS = dim(3)
+          ALLOCATE( BUFFER( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS) )
           ALLOCATE( CGRID_GT( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GT, 24 ) )
           ALLOCATE( CGRID_GS( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GS, 24 ) )
           CGRID_GT = -0.00001
@@ -371,22 +372,23 @@ C  read record of data values and fill array
       found = .false.
 
 
-      do timestep = 1, 24
+1024  do timestep = 1, 24
 
       do NCOUNT = 1, NSPC_GS
 
         if( NCOUNT.gt.NSPC_GS ) EXIT
 
-        read(GEO_UNIT,iostat=status) modelName, modelRes, halfpolar, center180   
+        read(GEO_UNIT,iostat=status) modelName, modelRes, halfpolar, center180
         if( status.ne.0 ) then
           write(*,'(''**ERROR** cannot read data header record 1'')')
           goto 101
           endif
 
-        read(GEO_UNIT,iostat=status) category, tracer, unit, tau0, tau1,         
+        read(GEO_UNIT,iostat=status) category, tracer, unit, tau0, tau1,
      &                         reserved, dim, skip
         IF (tracer.ne.NCOUNT) THEN
-          write(*,'(''**ERROR** Tracer expected (i4); tracer found (i4)'')'), NCOUNT, tracer
+          write(*,'(''**ERROR** Tracer expected (i4); tracer found (i4)'')')
+          write(*,*), NCOUNT, tracer, timestep
           STOP
         ENDIF
         if( status.ne.0 ) then
@@ -410,7 +412,17 @@ C  read record of data values and fill array
         CGRID_GS(:,:,:,NCOUNT,timestep) =  buffer
 
         enddo
-
+        ntau0 = tau0
+        if (timestep.ne.24) then
+        DO WHILE ( ntau0.eq.tau0 )
+        read(GEO_UNIT,iostat=status)
+        read(GEO_UNIT,iostat=status) category, tracer, unit, ntau0, ntau1
+        read(GEO_UNIT,iostat=status)
+        enddo
+        BACKSPACE(GEO_UNIT)
+        BACKSPACE(GEO_UNIT)
+        BACKSPACE(GEO_UNIT)
+        endif
         enddo
 
   101 Close (GEO_UNIT)

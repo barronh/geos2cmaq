@@ -12,11 +12,16 @@ options, args = parser.parse_args()
 mapopt = dict([(o.dest, getattr(options, o.dest)) for o in parser.option_list[1:]])
 
 convpath = options.conversion or os.path.join(os.path.dirname(__file__), 'mapping', 'saprc07t.csv')
+if not os.path.exists(convpath):
+    temppath = os.path.join(os.path.dirname(__file__), 'mapping', convpath + '.csv')
+    if os.path.exists(temppath):
+        convpath = temppath
+        del temppath
 tracerpath = options.tracerinfo or os.path.join(os.path.dirname(__file__), 'testdata', 'tracerinfo.dat')
 smvpath = options.smvlog or os.path.join(os.path.dirname(__file__), 'testdata', 'smv2.log')
 mechpath = options.mechpath or os.path.join(os.path.dirname(__file__), 'testdata')
 if len(args) < 1:
-    parser.help()
+    parser.print_help()
     exit()
 else:
     out = args[0]
@@ -30,7 +35,9 @@ else:
 go = geos(tracerpath,
           smvpath)
 if not os.path.exists(convpath):
-    if 'Y' == raw_input("Conversion path does not exist; type Y to create it or any other key to abort\n"):
+    if os.path.exists(os.path.join(os.path.dirname(__file__), convpath + '.csv')):
+        convpath = os.path.join(os.path.dirname(__file__), convpath + '.csv')
+    elif 'Y' == raw_input("Conversion path does not exist; type Y to create it or any other key to abort\n"):
         trymap(mech(mechpath), convpath, go)
     else:
         exit()
