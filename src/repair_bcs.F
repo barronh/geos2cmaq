@@ -6,17 +6,22 @@ C    and aerosol surface area concentrations to be consistent with
 C    assumed background aerosol distributions, i.e. the standard
 C    deviation and geometric mean diameter around the boundaries
 C    will be the same
+C    Number and surface area variables must already be in the file
 C
 C 
 C  Sep 2008 -- Sergey L. Napelenok
 C      Modified for AE5
 C  Jun 2011 -- HOT Pye
 C      Modified for AE6 (Ca, K, Mg, Fe, Al, Si, APNCOM, ASEACATK)
-C      Updated organic aerosol density
+C      Updated organic aerosol density from 2.0e3 to 1.3e3
 C  July 2011 -- HOT Pye
 C      Added ATIJ and AMNJ
 C  Aug 2011 -- HOT Pye
 C      Replaced AORGPA with APOC for AERO6
+C  Apr 2012 -- HOT Pye (with constributions from SJR)
+C      Updated for full AERO6 consistency
+C      Added coarse mode surface area
+C      Organized and checked species (included some species that are currently zero from GEOS-Chem)
 C
 C-----------------------------------------------------------------------
       SUBROUTINE REPAIR( BC_FILE )
@@ -30,34 +35,22 @@ C-----------------------------------------------------------------------
 C...........PARAMETERS and their descriptions:
 
       REAL(8), PARAMETER :: PI      = 3.14159265358979324  ! PI (single precision 3.141593)
-      REAL,   PARAMETER :: F6DPI   = 6.0 / PI
-      REAL,   PARAMETER :: F6DPIM9 = 1.0E-9 * F6DPI
-      REAL,   PARAMETER :: RHOSO4  = 1.8e3 !  bulk density of aerosol sulfate
-      REAL,   PARAMETER :: RHONH4  = 1.8e3 !  bulk density of aerosol ammonium
-      REAL,   PARAMETER :: RHONO3  = 1.8e3 ! bulk density of aerosol nitrate
-      REAL,   PARAMETER :: RHOH2O  = 1.0e3 !  bulk density of aerosol water
-      !REAL,   PARAMETER :: RHOORG  = 2.0e3 ! bulk density for aerosol organics
-      REAL,   PARAMETER :: RHOORG  = 1.3e3 ! bulk density for aerosol organics following Carlton et al. 2010
-      REAL,   PARAMETER :: RHOSOIL = 2.6e3 ! bulk density for aerosol soil dust
-      REAL,   PARAMETER :: RHOSEAS = 2.2e3 ! bulk density for marine aerosol
-      REAL,   PARAMETER :: RHOANTH = 2.2e3 ! bulk density for anthropogenic aerosol
-      REAL,   PARAMETER :: RHOPHG  = 2.0e3 ! bulk density for mercury aerosol
-      REAL,   PARAMETER :: SO4FAC  = F6DPIM9 / RHOSO4 ! Factor to convert mass conc [ug m**-3]
-      REAL,   PARAMETER :: NH4FAC  = F6DPIM9 / RHONH4 !  to 3rd moment conc [m**3 m^-3]
-      REAL,   PARAMETER :: H2OFAC  = F6DPIM9 / RHOH2O
-      REAL,   PARAMETER :: NO3FAC  = F6DPIM9 / RHONO3
-      REAL,   PARAMETER :: ORGFAC  = F6DPIM9 / RHOORG
-      REAL,   PARAMETER :: SOILFAC = F6DPIM9 / RHOSOIL
-      REAL,   PARAMETER :: SEASFAC = F6DPIM9 / RHOSEAS
-      REAL,   PARAMETER :: ANTHFAC = F6DPIM9 / RHOANTH
-      REAL,   PARAMETER :: PHGFAC  = F6DPIM9 / RHOPHG
-      REAL,   PARAMETER :: SGINIAT = 1.7  ! initial sigma-G for Aitken mode
-      REAL,   PARAMETER :: SGINIAC = 2.0  ! initial sigma-G for accumulation mode
-      REAL,   PARAMETER :: SGINICO = 2.2  ! initial sigma-G for coarse mode
-      REAL,   PARAMETER :: DGINIAT = 0.01E-6  ! geometric mean diameter for Aitken mode [ m ]
-      REAL,   PARAMETER :: DGINIAC = 0.07E-6  ! geometric mean diameter for accum  mode [ m ]
-      REAL,   PARAMETER :: DGINICO = 1.0E-6   ! geometric mean diameter for coarse mode [ m ]
-      REAL,   PARAMETER :: CONMIN  = 1.0E-30  ! minimum concentration [ ug/m**3 ]
+      REAL,    PARAMETER :: RHOSO4  = 1.8e3 ! bulk density of aerosol sulfate
+      REAL,    PARAMETER :: RHONH4  = 1.8e3 ! bulk density of aerosol ammonium
+      REAL,    PARAMETER :: RHONO3  = 1.8e3 ! bulk density of aerosol nitrate
+      REAL,    PARAMETER :: RHOORG  = 1.3e3 ! bulk density for aerosol organics following Carlton et al. 2010
+      !REAL,    PARAMETER :: RHOORG  = 2.0e3 ! bulk density for aerosol organics following Carlton et al. 2010
+      REAL,    PARAMETER :: RHOSOIL = 2.6e3 ! bulk density for aerosol soil dust
+      REAL,    PARAMETER :: RHOSEAS = 2.2e3 ! bulk density for marine aerosol
+      REAL,    PARAMETER :: RHOANTH = 2.2e3 ! bulk density for anthropogenic aerosol
+      REAL,    PARAMETER :: SGINIAT = 1.7   ! initial sigma-G for Aitken mode
+      REAL,    PARAMETER :: SGINIAC = 2.0   ! initial sigma-G for accumulation mode
+      REAL,    PARAMETER :: SGINICO = 2.2   ! initial sigma-G for coarse mode
+      REAL,    PARAMETER :: DGINIAT = 0.01E-6  ! geometric mean diameter for Aitken mode [ m ]
+      REAL,    PARAMETER :: DGINIAC = 0.07E-6  ! geometric mean diameter for accum  mode [ m ]
+      REAL,    PARAMETER :: DGINICO = 1.0E-6   ! geometric mean diameter for coarse mode [ m ]
+      REAL,    PARAMETER :: CONMIN  = 1.0E-30  ! minimum concentration [ ug/m**3 ]
+      integer, parameter :: nspecies = 52      ! number of aerosol species treated
 
 C...........Argument VARIABLES
       CHARACTER(  16 ) :: BC_FILE
@@ -65,84 +58,79 @@ C...........Argument VARIABLES
 C...........LOCAL VARIABLES (scalars) and their descriptions:
 
       CHARACTER(  16 ) :: PNAME = 'REPAIR_BCS'  ! program name
+      CHARACTER(  16 ) :: VNAME                 ! variable name
       CHARACTER( 120 ) :: MSG = ' '             ! status message string
 
       INTEGER  JDATE      ! current model date, coded YYYYDDD
       INTEGER  JTIME      ! current model time, coded HHMMSS
-      INTEGER  VSO4AK     ! coarse mode sulfate aerosol conc
-      INTEGER  VSO4AJ     ! Accumulation mode sulfate aerosol conc
-      INTEGER  VSO4AI     ! Aitken mode sulfate conc
-      INTEGER  VNH4AJ     ! Accumulation mode aerosol ammonium conc
-      INTEGER  VNH4AI     ! Aitken mode ammonium conc
-      INTEGER  VNO3AK     ! coarse mode aerosol nitrate conc
-      INTEGER  VNO3AJ     ! Accumulation mode aerosol nitrate conc
-      INTEGER  VNO3AI     ! Aitken mode nitrate conc
-      INTEGER  VNAK       ! coarse mode sodium aerosol conc
-      INTEGER  VNAJ       ! Accumulation mode sodium aerosol conc
-      INTEGER  VNAI       ! Aitken mode sodium aerosol conc
-      INTEGER  VCLK       ! coarse mode chloride aerosol conc
-      INTEGER  VCLJ       ! Accumulation mode chloride aerosol conc
-      INTEGER  VCLI       ! Aitken mode chloride aerosol conc
-      INTEGER  VPOCJ      ! Accumulation mode primary anthropogenic organic aerosol conc
-      INTEGER  VPOCI      ! Aitken mode primary anthropogenic organic aerosol conc
-c     INTEGER  VORGAJ     ! Accumulation mode anthropogenic organic aerosol conc
-c     INTEGER  VORGAI     ! Aitken mode anthropogenic organic aerosol conc
-c     INTEGER  VORGBJ     ! Accumulation mode biogenic organic aerosol conc
-c     INTEGER  VORGBI     ! Aitken mode biogenic organic aerosol conc
-      INTEGER  VECJ       ! Accumulation mode elemental carbon
-      INTEGER  VECI       ! Aitken mode elemental carbon
-      INTEGER  VP25AJ     ! Accumulation mode primary PM2.5 conc
-      INTEGER  VP25AI     ! Aitken mode primary PM2.5 conc
-      INTEGER  VANTHA     ! coarse mode anthropogenic aerosol conc
-      INTEGER  VSEAS      ! coarse mode marine aerosol conc
-      INTEGER  VSOILA     ! coarse mode soil-derived aerosol conc
-      INTEGER  VAT0       ! Aitken mode number conc
-      INTEGER  VAC0       ! accum  mode number conc
-      INTEGER  VCOR0      ! coarse mode number conc
-      INTEGER  VSURFAT    ! Index for Aitken mode surface area
-      INTEGER  VSURFAC    ! Index for accumulatin mode surface area
-      INTEGER  VPHGJ      ! Accumulation mode particulate mercury
-      INTEGER  VPHGI      ! Aitken mode particulate mercury
-      ! AERO6 updated (hotp 6/21/11)
-      INTEGER  VSEACATK  ! Coarse mode seasalt cations
-      INTEGER  VNCOMI    ! Aitken mode non-carbon organic matter (OM-OC)
-      INTEGER  VNCOMJ    ! Accumulation mode non-carbon organic matter (OM-OC)
-      INTEGER  VCAJ      ! Accumulation mode calcium
-      INTEGER  VKJ       ! Accumulation mode potassium
-      INTEGER  VMGJ      ! Accumulation mode magnesium
-      INTEGER  VFEJ      ! Accumulation mode iron
-      INTEGER  VALJ      ! Accumulation mode aluminum
-      INTEGER  VSIJ      ! Accumulation mode silicon
-      INTEGER  VOTHRJ    ! Accumulation mode unspeciated
-      ! updates 7/28/11
-      INTEGER  VTIJ      ! Accumulation mode titanium
-      INTEGER  VMNJ      ! Accumulation mode magnesium
 
-      INTEGER   VALKJ     !   Accumulation mode SOA from "long" alkanes
-      INTEGER   VXYL1J    !   Accumulation mode SOA from low-yield arom 
-      INTEGER   VXYL2J    !   Accumulation mode SOA from low-yield arom 
-      INTEGER   VXYL3J    !   Accumulation mode SOA from low-yield arom 
-      INTEGER   VTOL1J    !   Accumulation mode SOA from high-yield arom
-      INTEGER   VTOL2J    !   Accumulation mode SOA from high-yield arom  
-      INTEGER   VTOL3J    !   Accumulation mode SOA from high-yield arom
-      INTEGER   VBNZ1J    !   Accumulation mode SOA from benzene
-      INTEGER   VBNZ2J    !   Accumulation mode SOA from benzene
-      INTEGER   VBNZ3J    !   Accumulation mode SOA from benzene
-      INTEGER   VTRP1J    !   Accumulation mode SOA from monoterpenes
-      INTEGER   VTRP2J    !   Accumulation mode SOA from monoterpenes  
-      INTEGER   VISO1J    !   Accumulation mode SOA from isoprene
-      INTEGER   VISO2J    !   Accumulation mode SOA from isoprene  
-      INTEGER   VISO3J    !   Accumulation mode SOA from isoprene
-      INTEGER   VSQTJ     !   Accumulation mode SOA from sesquiterpenes
-      INTEGER   VOLGAJ    !   Accum mode anthropogenic organic oligomers
-      INTEGER   VOLGBJ    !   Accum mode biogenic organic oligomers
-      INTEGER   VORGCJ    !   Accumulation mode SOA produced in clouds
+      Type speciesstruct
+           Character(16) :: name    ! species name in BC file
+           INTEGER       :: ind     ! index in array
+           INTEGER       :: mode    ! 1: Aitken, 2: accumulation, 3: coarse
+           REAL          :: density ! species density
+      end type speciesstruct
 
+C...identification of aerosol species, mode, and density
+C   that contribute to Aitken, Accumulation, and Coarse aerosol
+      Type( speciesstruct ), save :: bcspecies( nspecies ) = (/
+C                           name, ind, mode, density
+     & speciesstruct (    'ACLI',   0,    1, RHOSEAS),
+     & speciesstruct (    'AECI',   0,    1, RHOANTH),
+     & speciesstruct (    'ANAI',   0,    1, RHOSEAS),
+     & speciesstruct (   'ANH4I',   0,    1,  RHONH4),
+     & speciesstruct (   'ANO3I',   0,    1,  RHONO3),
+     & speciesstruct (  'AOTHRI',   0,    1, RHOANTH),
+     & speciesstruct ( 'APNCOMI',   0,    1,  RHOORG),
+     & speciesstruct (   'APOCI',   0,    1,  RHOORG),
+     & speciesstruct (   'ASO4I',   0,    1,  RHOSO4),
+     & speciesstruct (    'AALJ',   0,    2, RHOSOIL),
+     & speciesstruct (   'AALKJ',   0,    2,  RHOORG),
+     & speciesstruct (  'ABNZ1J',   0,    2,  RHOORG),
+     & speciesstruct (  'ABNZ2J',   0,    2,  RHOORG),
+     & speciesstruct (  'ABNZ3J',   0,    2,  RHOORG),
+     & speciesstruct (    'ACAJ',   0,    2, RHOSOIL),
+     & speciesstruct (    'ACLJ',   0,    2, RHOSEAS),
+     & speciesstruct (    'AECJ',   0,    2, RHOANTH),
+     & speciesstruct (    'AFEJ',   0,    2, RHOSOIL),
+     & speciesstruct (  'AISO1J',   0,    2,  RHOORG),
+     & speciesstruct (  'AISO2J',   0,    2,  RHOORG),
+     & speciesstruct (  'AISO3J',   0,    2,  RHOORG),
+     & speciesstruct (     'AKJ',   0,    2, RHOSOIL),
+     & speciesstruct (    'AMGJ',   0,    2, RHOSEAS),
+     & speciesstruct (    'AMNJ',   0,    2, RHOSOIL),
+     & speciesstruct (    'ANAJ',   0,    2, RHOSEAS),
+     & speciesstruct (   'ANH4J',   0,    2,  RHONH4),
+     & speciesstruct (   'ANO3J',   0,    2,  RHONO3),
+     & speciesstruct (  'AOLGAJ',   0,    2,  RHOORG),
+     & speciesstruct (  'AOLGBJ',   0,    2,  RHOORG),
+     & speciesstruct (  'AORGCJ',   0,    2,  RHOORG),
+     & speciesstruct (  'AOTHRJ',   0,    2, RHOSOIL),
+     & speciesstruct ( 'APNCOMJ',   0,    2,  RHOORG),
+     & speciesstruct (   'APOCJ',   0,    2,  RHOORG),
+     & speciesstruct (    'ASIJ',   0,    2, RHOSOIL),
+     & speciesstruct (   'ASO4J',   0,    2,  RHOSO4),
+     & speciesstruct (   'ASQTJ',   0,    2,  RHOORG),
+     & speciesstruct (    'ATIJ',   0,    2, RHOSOIL),
+     & speciesstruct (  'ATOL1J',   0,    2,  RHOORG),
+     & speciesstruct (  'ATOL2J',   0,    2,  RHOORG),
+     & speciesstruct (  'ATOL3J',   0,    2,  RHOORG),
+     & speciesstruct (  'ATRP1J',   0,    2,  RHOORG),
+     & speciesstruct (  'ATRP2J',   0,    2,  RHOORG),
+     & speciesstruct (  'AXYL1J',   0,    2,  RHOORG),
+     & speciesstruct (  'AXYL2J',   0,    2,  RHOORG),
+     & speciesstruct (  'AXYL3J',   0,    2,  RHOORG),
+     & speciesstruct (    'ACLK',   0,    3, RHOSEAS),
+     & speciesstruct (   'ACORS',   0,    3, RHOANTH),
+     & speciesstruct (   'ANH4K',   0,    3,  RHONH4),
+     & speciesstruct (   'ANO3K',   0,    3,  RHONO3),
+     & speciesstruct ('ASEACATK',   0,    3, RHOSEAS),
+     & speciesstruct (   'ASO4K',   0,    3,  RHOSO4),
+     & speciesstruct (   'ASOIL',   0,    3, RHOSOIL) /)
 
-
-      INTEGER  NSTEPS
+      INTEGER  NSTEPS      ! time, space, species dimensions/counters
       INTEGER  TSTEP 
-      INTEGER  NVARS 
+      INTEGER  NVARS       
       INTEGER  NLAYS 
       INTEGER  NCELLS
       INTEGER  IVAR
@@ -150,16 +138,19 @@ c     INTEGER  VORGBI     ! Aitken mode biogenic organic aerosol conc
       INTEGER  ISTEP
       INTEGER  ICELL
 
+      INTEGER VAT0, VAC0, VCOR0, VSURFAT, VSURFAC, VSURFCO ! array indices
+
       REAL  M3ATKN       ! Aitken mode 3rd moment
       REAL  M3ACC        ! accumulation mode 3rd moment
       REAL  M3COR        ! coarse mode 3rd moment
-      REAL  NUMFAC_ATKN
+      REAL  NUMFAC_ATKN  ! number conversion factor
       REAL  NUMFAC_ACC 
       REAL  NUMFAC_COR 
-      REAL  SRFFAC_ATKN
+      REAL  SRFFAC_ATKN  ! surface area conversion factor
       REAL  SRFFAC_ACC 
+      REAL  SRFFAC_COR 
 
-      REAL, ALLOCATABLE :: BC_VALUES  ( :,:,: ) ! boundary conditions
+      REAL, ALLOCATABLE :: BC_VALUES( :,:,: ) 
 
 C...........EXTERNAL FUNCTIONS and their descriptions:
 
@@ -168,11 +159,13 @@ C...........EXTERNAL FUNCTIONS and their descriptions:
 C*********************************************************************
 C     begin body of program REPAIR_BCS
 
+C...conversion factors for number and surface area
       NUMFAC_ATKN = 1.0 / ( ( DGINIAT ** 3.0 ) * EXP( ( 9.0 / 2.0 ) * ( ( LOG( SGINIAT ) ) ** 2.0 ) ) )
       NUMFAC_ACC  = 1.0 / ( ( DGINIAC ** 3.0 ) * EXP( ( 9.0 / 2.0 ) * ( ( LOG( SGINIAC ) ) ** 2.0 ) ) )
       NUMFAC_COR  = 1.0 / ( ( DGINICO ** 3.0 ) * EXP( ( 9.0 / 2.0 ) * ( ( LOG( SGINICO ) ) ** 2.0 ) ) )
       SRFFAC_ATKN = PI / ( DGINIAT * EXP( ( 5.0 / 2.0 ) * ( ( LOG( SGINIAT ) ) ** 2.0 ) ) )
       SRFFAC_ACC  = PI / ( DGINIAC * EXP( ( 5.0 / 2.0 ) * ( ( LOG( SGINIAC ) ) ** 2.0 ) ) )
+      SRFFAC_COR  = PI / ( DGINICO * EXP( ( 5.0 / 2.0 ) * ( ( LOG( SGINICO ) ) ** 2.0 ) ) )
 
 C...get the file description from the input boundary condition file
 
@@ -188,127 +181,68 @@ C...get the file description from the input boundary condition file
       NVARS  = NVARS3D
       NLAYS  = NLAYS3D
 
-C...get indices for the Aitken mode aerosols
+C...get indices for aerosols
 
-      VSO4AI = INDEX1( 'ASO4I', NVARS, VNAME3D )
+      bcspecies%ind = 0
+      do ivar= 1, nspecies
+        vname            = bcspecies(ivar)%name
+        bcspecies(ivar)%ind = INDEX1( VNAME, NVARS, VNAME3D )
+        if ( bcspecies(ivar)%ind == 0 ) THEN
+          MSG = 'Could not find ' // VNAME // 'in ' // BC_FILE //' file'
+          CALL M3WARN ( PNAME, 0, 0, MSG )
+        endif
+      enddo
 
-      VNH4AI = INDEX1( 'ANH4I', NVARS, VNAME3D )
+C...get indices for the number concentration (add index if it does not exist)
 
-      VNO3AI = INDEX1( 'ANO3I', NVARS, VNAME3D )
+      VNAME = 'NUMATKN'
+      VAT0 = INDEX1( VNAME, NVARS, VNAME3D )
+      IF ( VAT0 .EQ. 0 ) THEN
+         MSG = 'Could not find ' // VNAME // '...there is a problem'
+         CALL M3EXIT ( PNAME, 0, 0, MSG, XSTAT1 )
+      END IF
 
-      VPOCI  = INDEX1( 'APOCI', NVARS, VNAME3D )
+      VNAME = 'NUMACC'
+      VAC0 = INDEX1( VNAME, NVARS, VNAME3D )
+      IF ( VAC0 .EQ. 0 ) THEN
+         MSG = 'Could not find ' // VNAME // '...there is a problem'
+         CALL M3EXIT ( PNAME, 0, 0, MSG, XSTAT1 )
+      END IF
 
-c     VORGAI = INDEX1( 'AORGAI', NVARS, VNAME3D )
-
-c     VORGBI = INDEX1( 'AORGBI', NVARS, VNAME3D )
-
-      VECI = INDEX1( 'AECI', NVARS, VNAME3D )
-
-      VP25AI = INDEX1( 'A25I', NVARS, VNAME3D )
-
-      VNAI = INDEX1( 'ANAI', NVARS, VNAME3D )
-
-      VCLI = INDEX1( 'ACLI', NVARS, VNAME3D )
-
-      VPHGI = INDEX1( 'APHGI', NVARS, VNAME3D )
-
-      ! AERO6, hotp
-      VNCOMI = INDEX1( 'APNCOMI', NVARS, VNAME3D )
-
-C...get indices for the accumulation mode aerosols
-
-      VSO4AJ = INDEX1( 'ASO4J', NVARS, VNAME3D )
-
-      VNH4AJ = INDEX1( 'ANH4J', NVARS, VNAME3D )
-
-      VNO3AJ = INDEX1( 'ANO3J', NVARS, VNAME3D )
-
-      VPOCJ  = INDEX1( 'APOCJ', NVARS, VNAME3D )
-
-c     VORGAJ = INDEX1( 'AORGAJ', NVARS, VNAME3D )
-
-c     VORGBJ = INDEX1( 'AORGBJ', NVARS, VNAME3D )
-
-      VECJ = INDEX1( 'AECJ', NVARS, VNAME3D )
-
-      VP25AJ = INDEX1( 'A25J', NVARS, VNAME3D )
-
-      VNAJ = INDEX1( 'ANAJ', NVARS, VNAME3D )
-
-      VCLJ = INDEX1( 'ACLJ', NVARS, VNAME3D )
-
-      VPHGJ = INDEX1( 'APHGJ', NVARS, VNAME3D )
-
-      ! AERO6, hotp
-      VCAJ    = INDEX1( 'ACAJ',   NVARS, VNAME3D )
-      VKJ     = INDEX1( 'AKJ',    NVARS, VNAME3D )
-      VMGJ    = INDEX1( 'AMGJ',   NVARS, VNAME3D )
-      VFEJ    = INDEX1( 'AFEJ',   NVARS, VNAME3D )
-      VALJ    = INDEX1( 'AALJ',   NVARS, VNAME3D )
-      VSIJ    = INDEX1( 'ASIJ',   NVARS, VNAME3D )
-      VOTHRJ  = INDEX1( 'AOTHRJ', NVARS, VNAME3D )
-      VNCOMJ  = INDEX1( 'APNCOMJ',NVARS, VNAME3D )
-      ! 7/28/11
-      VTIJ    = INDEX1( 'ATIJ'   ,NVARS, VNAME3D )
-      VMNJ    = INDEX1( 'AMNJ'   ,NVARS, VNAME3D )
-
-      VALKJ   = INDEX1( 'VALKJ',  NVARS, VNAME3D )
-      VXYL1J  = INDEX1( 'VXYL1J', NVARS, VNAME3D )
-      VXYL2J  = INDEX1( 'VXYL2J', NVARS, VNAME3D )
-      VXYL3J  = INDEX1( 'VXYL3J', NVARS, VNAME3D )
-      VTOL1J  = INDEX1( 'VTOL1J', NVARS, VNAME3D )
-      VTOL2J  = INDEX1( 'VTOL2J', NVARS, VNAME3D ) 
-      VTOL3J  = INDEX1( 'VTOL3J', NVARS, VNAME3D )
-      VBNZ1J  = INDEX1( 'VBNZ1J', NVARS, VNAME3D )
-      VBNZ2J  = INDEX1( 'VBNZ2J', NVARS, VNAME3D )
-      VBNZ3J  = INDEX1( 'VBNZ3J', NVARS, VNAME3D )
-      VTRP1J  = INDEX1( 'VTRP1J', NVARS, VNAME3D )
-      VTRP2J  = INDEX1( 'VTRP2J', NVARS, VNAME3D )
-      VISO1J  = INDEX1( 'VISO1J', NVARS, VNAME3D )
-      VISO2J  = INDEX1( 'VISO2J', NVARS, VNAME3D )
-      VISO3J  = INDEX1( 'VISO3J', NVARS, VNAME3D )
-      VSQTJ   = INDEX1( 'VSQTJ',  NVARS, VNAME3D )
-      VOLGAJ  = INDEX1( 'VOLGAJ', NVARS, VNAME3D )
-      VOLGBJ  = INDEX1( 'VOLGBJ', NVARS, VNAME3D )
-      VORGCJ  = INDEX1( 'VORGCJ', NVARS, VNAME3D )
-
-C...get indices for the coarse mode aerosols
-
-      VANTHA = INDEX1( 'ACORS', NVARS, VNAME3D )
-
-      VSEAS = INDEX1( 'ASEAS', NVARS, VNAME3D )
-
-      VSOILA = INDEX1( 'ASOIL', NVARS, VNAME3D )
-
-      VNAK = INDEX1( 'ANAK', NVARS, VNAME3D )
-
-      VCLK = INDEX1( 'ACLK', NVARS, VNAME3D )
-
-      VSO4AK = INDEX1( 'ASO4K', NVARS, VNAME3D )
-
-      VNO3AK = INDEX1( 'ANO3K', NVARS, VNAME3D )
-
-      ! AERO6, hotp
-      VSEACATK = INDEX1( 'ASEACATK', NVARS, VNAME3D )
-
-C...get indices for the number concentration
-
-      VAT0 = INDEX1( 'NUMATKN', NVARS, VNAME3D )
-
-      VAC0 = INDEX1( 'NUMACC', NVARS, VNAME3D )
-
-      VCOR0 = INDEX1( 'NUMCOR', NVARS, VNAME3D )
+      VNAME = 'NUMCOR'
+      VCOR0 = INDEX1( VNAME, NVARS, VNAME3D )
+      IF ( VCOR0 .EQ. 0 ) THEN
+         MSG = 'Could not find ' // VNAME // '...there is a problem'
+         CALL M3EXIT ( PNAME, 0, 0, MSG, XSTAT1 )
+      END IF
 
 C...get indices for the surface area concentration
 
-      VSURFAT = INDEX1( 'SRFATKN', NVARS, VNAME3D )
+      VNAME = 'SRFATKN'
+      VSURFAT = INDEX1( VNAME, NVARS, VNAME3D )
+      IF ( VSURFAT .EQ. 0 ) THEN
+         MSG = 'Could not find ' // VNAME // '...there is a problem'
+         CALL M3EXIT ( PNAME, 0, 0, MSG, XSTAT1 )
+      END IF
 
-      VSURFAC = INDEX1( 'SRFACC', NVARS, VNAME3D )
+      VNAME = 'SRFACC'
+      VSURFAC = INDEX1( VNAME, NVARS, VNAME3D )
+      IF ( VSURFAC .EQ. 0 ) THEN
+         MSG = 'Could not find ' // VNAME // '...there is a problem'
+         CALL M3EXIT ( PNAME, 0, 0, MSG, XSTAT1 )
+      END IF
+
+      VNAME = 'SRFCOR'
+      VSURFCO = INDEX1( VNAME, NVARS, VNAME3D )
+      IF ( VSURFCO .EQ. 0 ) THEN
+         MSG = 'Could not find ' // VNAME // '...there is a problem'
+         CALL M3EXIT ( PNAME, 0, 0, MSG, XSTAT1 )
+      END IF
 
 C...allocate arrays
 
       NCELLS = 2 * NTHIK3D * ( NCOLS3D + NROWS3D + 2 * NTHIK3D )
-      ALLOCATE( BC_VALUES( NCELLS, NLAYS, NVARS ) )
+      ALLOCATE( BC_VALUES(  NCELLS, NLAYS, NVARS ) )
 
 C...begin loop through all timesteps on input file
 
@@ -326,89 +260,33 @@ C...process data in all layers and cells
             DO ICELL = 1, NCELLS
 
 C...Calculate aerosol 3rd moment concentrations [ m**3 / m**3 ]
+               m3atkn = 0
+               m3acc  = 0
+               m3cor  = 0
 
-C... Aitken mode
+               do ivar= 1, nspecies
+                  if ( bcspecies(ivar)%ind > 0 ) THEN
+                     if ( bcspecies(ivar)%mode == 1 ) THEN
+                        m3atkn = m3atkn + 1.0e-9*6.0/( pi*bcspecies(ivar)%density ) * bc_values(icell,ilay,bcspecies(ivar)%ind)
+                     elseif ( bcspecies(ivar)%mode == 2 ) THEN
+                        m3acc  = m3acc  + 1.0e-9*6.0/( pi*bcspecies(ivar)%density )* bc_values(icell,ilay,bcspecies(ivar)%ind)   
+                     elseif ( bcspecies(ivar)%mode == 3 ) THEN
+                        m3cor  = m3cor  + 1.0e-9*6.0/( pi*bcspecies(ivar)%density )* bc_values(icell,ilay,bcspecies(ivar)%ind)
+                     endif
+                  endif
+               enddo
 
-               M3ATKN = 0.0
-               IF ( VSO4AI  .NE. 0 ) M3ATKN = M3ATKN + SO4FAC  * BC_VALUES( ICELL, ILAY, VSO4AI  )
-               IF ( VNH4AI  .NE. 0 ) M3ATKN = M3ATKN + NH4FAC  * BC_VALUES( ICELL, ILAY, VNH4AI  )
-               IF ( VNO3AI  .NE. 0 ) M3ATKN = M3ATKN + NO3FAC  * BC_VALUES( ICELL, ILAY, VNO3AI  )
-               IF ( VPOCI   .NE. 0 ) M3ATKN = M3ATKN + ORGFAC  * BC_VALUES( ICELL, ILAY, VPOCI )
-c              IF ( VORGAI  .NE. 0 ) M3ATKN = M3ATKN + ORGFAC  * BC_VALUES( ICELL, ILAY, VORGAI  )
-c              IF ( VORGBI  .NE. 0 ) M3ATKN = M3ATKN + ORGFAC  * BC_VALUES( ICELL, ILAY, VORGBI  )
-               IF ( VP25AI  .NE. 0 ) M3ATKN = M3ATKN + ANTHFAC * BC_VALUES( ICELL, ILAY, VP25AI  )
-               IF ( VECI    .NE. 0 ) M3ATKN = M3ATKN + ANTHFAC * BC_VALUES( ICELL, ILAY, VECI    )
-               IF ( VNAI    .NE. 0 ) M3ATKN = M3ATKN + SEASFAC * BC_VALUES( ICELL, ILAY, VNAI    )
-               IF ( VCLI    .NE. 0 ) M3ATKN = M3ATKN + SEASFAC * BC_VALUES( ICELL, ILAY, VCLI    )
-               IF ( VPHGI   .NE. 0 ) M3ATKN = M3ATKN + PHGFAC  * BC_VALUES( ICELL, ILAY, VPHGI   )
-               IF ( VNCOMI  .NE. 0 ) M3ATKN = M3ATKN + ORGFAC  * BC_VALUES( ICELL, ILAY, VNCOMI  ) ! AERO6, hotp
+C...Calculate number concentrations [ # / m**3 ] and fill/overwrite position
 
-C... accumulation mode
-
-               M3ACC = 0.0
-               IF ( VSO4AJ  .NE. 0 ) M3ACC = M3ACC + SO4FAC  * BC_VALUES( ICELL, ILAY, VSO4AJ  )
-               IF ( VNH4AJ  .NE. 0 ) M3ACC = M3ACC + NH4FAC  * BC_VALUES( ICELL, ILAY, VNH4AJ  )
-               IF ( VNO3AJ  .NE. 0 ) M3ACC = M3ACC + NO3FAC  * BC_VALUES( ICELL, ILAY, VNO3AJ  )
-               IF ( VPOCJ   .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VPOCJ )
-c              IF ( VORGAJ  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VORGAJ  )
-c              IF ( VORGBJ  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VORGBJ  )
-               IF ( VP25AJ  .NE. 0 ) M3ACC = M3ACC + ANTHFAC * BC_VALUES( ICELL, ILAY, VP25AJ  )
-               IF ( VECJ    .NE. 0 ) M3ACC = M3ACC + ANTHFAC * BC_VALUES( ICELL, ILAY, VECJ    )
-               IF ( VNAJ    .NE. 0 ) M3ACC = M3ACC + SEASFAC * BC_VALUES( ICELL, ILAY, VNAJ    )
-               IF ( VCLJ    .NE. 0 ) M3ACC = M3ACC + SEASFAC * BC_VALUES( ICELL, ILAY, VCLJ    )
-               IF ( VPHGJ   .NE. 0 ) M3ACC = M3ACC + PHGFAC  * BC_VALUES( ICELL, ILAY, VPHGJ   )
-               IF ( VALKJ   .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VALKJ   )
-               IF ( VXYL1J  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VXYL1J  )
-               IF ( VXYL2J  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VXYL2J  )
-               IF ( VXYL3J  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VXYL3J  )
-               IF ( VTOL1J  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VTOL1J  )
-               IF ( VTOL2J  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VTOL2J  )
-               IF ( VTOL3J  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VTOL3J  )
-               IF ( VBNZ1J  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VBNZ1J  )
-               IF ( VBNZ2J  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VBNZ2J  )
-               IF ( VBNZ3J  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VBNZ3J  )
-               IF ( VTRP1J  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VTRP1J  )
-               IF ( VTRP2J  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VTRP2J  )
-               IF ( VISO1J  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VISO1J  )
-               IF ( VISO2J  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VISO2J  )
-               IF ( VISO3J  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VISO3J  )
-               IF ( VSQTJ   .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VSQTJ   )
-               IF ( VOLGAJ  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VOLGAJ  )
-               IF ( VOLGBJ  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VOLGBJ  )
-               IF ( VORGCJ  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VORGCJ  )
-               IF ( VCAJ    .NE. 0 ) M3ACC = M3ACC + SOILFAC * BC_VALUES( ICELL, ILAY, VCAJ    ) ! AERO6, hotp
-               IF ( VKJ     .NE. 0 ) M3ACC = M3ACC + SOILFAC * BC_VALUES( ICELL, ILAY, VKJ     )
-               IF ( VMGJ    .NE. 0 ) M3ACC = M3ACC + SEASFAC * BC_VALUES( ICELL, ILAY, VMGJ    )
-               IF ( VFEJ    .NE. 0 ) M3ACC = M3ACC + SOILFAC * BC_VALUES( ICELL, ILAY, VFEJ    )
-               IF ( VALJ    .NE. 0 ) M3ACC = M3ACC + SOILFAC * BC_VALUES( ICELL, ILAY, VALJ    )
-               IF ( VSIJ    .NE. 0 ) M3ACC = M3ACC + SOILFAC * BC_VALUES( ICELL, ILAY, VSIJ    )
-               IF ( VOTHRJ  .NE. 0 ) M3ACC = M3ACC + SOILFAC * BC_VALUES( ICELL, ILAY, VOTHRJ  )
-               IF ( VNCOMJ  .NE. 0 ) M3ACC = M3ACC + ORGFAC  * BC_VALUES( ICELL, ILAY, VNCOMJ  )
-               ! 7/28/11
-               IF ( VTIJ    .NE. 0 ) M3ACC = M3ACC + SOILFAC * BC_VALUES( ICELL, ILAY, VTIJ    )
-               IF ( VMNJ    .NE. 0 ) M3ACC = M3ACC + SOILFAC * BC_VALUES( ICELL, ILAY, VMNJ    )
-C... coarse mode
-
-               M3COR = 0.0
-               IF ( VSOILA  .NE. 0 ) M3COR = M3COR + SOILFAC * BC_VALUES( ICELL, ILAY, VSOILA )
-               IF ( VSEAS   .NE. 0 ) M3COR = M3COR + SEASFAC * BC_VALUES( ICELL, ILAY, VSEAS  )
-               IF ( VANTHA  .NE. 0 ) M3COR = M3COR + ANTHFAC * BC_VALUES( ICELL, ILAY, VANTHA )
-               IF ( VNAK    .NE. 0 ) M3COR = M3COR + SEASFAC * BC_VALUES( ICELL, ILAY, VNAK   )
-               IF ( VCLK    .NE. 0 ) M3COR = M3COR + SEASFAC * BC_VALUES( ICELL, ILAY, VCLK   )
-               IF ( VSO4AK  .NE. 0 ) M3COR = M3COR + SO4FAC  * BC_VALUES( ICELL, ILAY, VSO4AK )
-               IF ( VNO3AK  .NE. 0 ) M3COR = M3COR + NO3FAC  * BC_VALUES( ICELL, ILAY, VNO3AK )
-               IF ( VSEACATK.NE. 0 ) M3COR = M3COR + SEASFAC * BC_VALUES( ICELL, ILAY, VSEACATK ) ! AERO6, hotp
-
-C...Calculate number concentrations [ # / m**3 ]
-
-               IF ( VAT0  .NE. 0 ) BC_VALUES( ICELL, ILAY, VAT0  ) = NUMFAC_ATKN * M3ATKN
-               IF ( VAC0  .NE. 0 ) BC_VALUES( ICELL, ILAY, VAC0  ) = NUMFAC_ACC  * M3ACC
-               IF ( VCOR0 .NE. 0 ) BC_VALUES( ICELL, ILAY, VCOR0 ) = NUMFAC_COR  * M3COR
+               bc_values( ICELL, ILAY, VAT0  ) = NUMFAC_ATKN * M3ATKN
+               bc_values( ICELL, ILAY, VAC0  ) = NUMFAC_ACC  * M3ACC
+               bc_values( ICELL, ILAY, VCOR0 ) = NUMFAC_COR  * M3COR
 
 C...Calculate surface area concentrations [ m**2 / m**3 ]
 
-               IF ( VSURFAT .NE. 0 ) BC_VALUES( ICELL, ILAY, VSURFAT ) = SRFFAC_ATKN * M3ATKN
-               IF ( VSURFAC .NE. 0 ) BC_VALUES( ICELL, ILAY, VSURFAC ) = SRFFAC_ACC  * M3ACC
+               bc_values( ICELL, ILAY, VSURFAT ) = SRFFAC_ATKN * M3ATKN
+               bc_values( ICELL, ILAY, VSURFAC ) = SRFFAC_ACC  * M3ACC
+               bc_values( ICELL, ILAY, VSURFCO ) = SRFFAC_COR  * M3COR
 
             END DO
          END DO
@@ -416,7 +294,7 @@ C...Calculate surface area concentrations [ m**2 / m**3 ]
 C...write updated boundary conditions to the output file
 
          IF ( .NOT. WRITE3( BC_FILE, ALLVAR3, JDATE, JTIME,
-     &                      BC_VALUES( 1, 1, 1 ) ) ) THEN
+     &                      bc_values( 1, 1, 1 ) ) ) THEN
             MSG =  'Could not WRITE all species to file ' // BC_FILE 
             CALL M3ERR ( PNAME, JDATE, JTIME, MSG, .TRUE. )
          ENDIF
@@ -425,6 +303,7 @@ C...write updated boundary conditions to the output file
 
       END DO
 
-      DEALLOCATE ( BC_VALUES )
+      DEALLOCATE ( BC_VALUES  )
       RETURN
+
       END SUBROUTINE REPAIR

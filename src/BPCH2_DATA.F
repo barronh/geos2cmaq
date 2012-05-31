@@ -372,9 +372,9 @@ C  read record of data values and fill array
       found = .false.
 
 
-1024  do timestep = 1, 24
+1024  timeloop : do timestep = 1, 24
 
-      do NCOUNT = 1, NSPC_GS
+      specloop: do NCOUNT = 1, NSPC_GS
 
         if( NCOUNT.gt.NSPC_GS ) EXIT
 
@@ -389,7 +389,9 @@ C  read record of data values and fill array
         IF (tracer.ne.NCOUNT) THEN
           write(*,'(''**ERROR** Tracer expected (i4); tracer found (i4)'')')
           write(*,*), NCOUNT, tracer, timestep
-          STOP
+          BACKSPACE(GEO_UNIT)
+          BACKSPACE(GEO_UNIT)
+          CYCLE timeloop
         ENDIF
         if( status.ne.0 ) then
           write(*,'(''**ERROR** cannot read data header record 2'')')
@@ -399,7 +401,7 @@ C  read record of data values and fill array
         ! skip species with less than N_GEO_LAYS layers
         if( dim(3) .gt. N_GEO_LAYS ) then
           read(GEO_UNIT) blank
-          cycle
+          cycle specloop
           endif
 
         read(GEO_UNIT,iostat=status) (((buffer(i, j, k), i=1,dim(1)), j=1,dim(2)), k=1,dim(3))
@@ -411,7 +413,7 @@ C  read record of data values and fill array
         found = .true.
         CGRID_GS(:,:,:,NCOUNT,timestep) =  buffer
 
-        enddo
+        enddo specloop
         ntau0 = tau0
         if (timestep.ne.24) then
         DO WHILE ( ntau0.eq.tau0 )
@@ -423,7 +425,7 @@ C  read record of data values and fill array
         BACKSPACE(GEO_UNIT)
         BACKSPACE(GEO_UNIT)
         endif
-        enddo
+        enddo timeloop
 
   101 Close (GEO_UNIT)
       if( .NOT.found) then
