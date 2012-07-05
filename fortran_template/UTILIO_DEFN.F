@@ -61,5 +61,7 @@ C....................................................................
          USE M3UTILIO, INTERPB => INTERP3
 !        USE M3UTILIO
 #endif
+         EXTERNAL JUNIT
+         INTEGER JUNIT
 
       END MODULE UTILIO_DEFN
