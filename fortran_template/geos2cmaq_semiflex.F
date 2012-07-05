@@ -51,9 +51,12 @@ C..SCRATCH LOCAL VARIABLES:
       INTEGER            ::  C, R, L, S, N, V
       INTEGER            ::  IND
       INTEGER            ::  JDATE = 0
+      INTEGER            ::  JDATE_CHECK = 0
       INTEGER            ::  JTIME = 0
       INTEGER            ::  EDATE = 0
+      INTEGER            ::  EDATE_CHECK = 0
       INTEGER            ::  ETIME = 0
+      INTEGER            ::  IGNORE_YEAR = 0
       INTEGER            ::  MDATE 
       INTEGER            ::  MTIME 
 
@@ -62,6 +65,8 @@ C..SCRATCH LOCAL VARIABLES:
       INTEGER            ::  START_TIME = 0
       INTEGER            ::  STOP_DATE  = 0
       INTEGER            ::  STOP_TIME  = 0
+      INTEGER            ::  START_DATE_CHECK = 0
+      INTEGER            ::  STOP_DATE_CHECK  = 0
       INTEGER            ::  LOGDEV           ! Unit number for output log
       INTEGER            ::  NBDY
       INTEGER            ::  NCELL
@@ -176,9 +181,9 @@ C...get starting date and time
 
        START_DATE = ENVINT('START_DATE','Start Date for period', START_DATE, STATUS)
        START_TIME  = ENVINT('START_TIME','Start Time for period', START_TIME, STATUS)
-       
+       IGNORE_YEAR  = ENVINT('IGNORE_YEAR','Positive to indicate surrogate year', IGNORE_YEAR, STATUS)
        IF( START_DATE .LE. 0 )THEN
-           MSG = 'BAD or UNDEFINED value for environment varaible START_DATE'
+           MSG = 'BAD or UNDEFINED value for environment variable START_DATE'
            CALL M3EXIT(PNAME, JDATE, JTIME, MSG, XSTAT1 )
        END IF
 
@@ -186,36 +191,38 @@ C...get starting date and time
        STOP_TIME = ENVINT('STOP_TIME', 'Stop Time for period', STOP_TIME, STATUS)
 
        IF( STOP_DATE .LE. 0 )THEN
-           MSG = 'BAD or UNDEFINED value for environment varaible STOP_DATE'
+           MSG = 'BAD or UNDEFINED value for environment variable STOP_DATE'
            CALL M3EXIT(PNAME, JDATE, JTIME, MSG, XSTAT1 )
        END IF
-
-      IF( MOD(jdate, 1000) .EQ. MOD(STOP_DATE, 1000)  .AND.  jtime .GT. STOP_TIME )THEN
-              WRITE(LOGDEV, *)'METCRO3D file begins after to STOP_DATE ',
+       
+       IF ( IGNORE_YEAR .GT. 0) THEN
+           WRITE(LOGDEV, *)'METCRO3D date (', jdate, ') and start date (', START_DATE, ') have different years.'
+           WRITE(LOGDEV, *)' *** PROCEEDING with surrogate year *** '           
+           JDATE_CHECK = MOD(JDATE, 1000) + START_DATE / 1000
+           EDATE_CHECK = MOD(EDATE, 1000) + START_DATE / 1000
+           IF (((STOP_DATE / 1000) .GT. (START_DATE / 1000)) .AND.
+     &         (JDATE_CHECK .LT. START_DATE)) THEN
+               JDATE_CHECK = MOD(JDATE, 1000) + STOP_DATE / 1000
+               EDATE_CHECK = MOD(EDATE, 1000) + STOP_DATE / 1000
+           ENDIF
+       ELSE
+           JDATE_CHECK = JDATE
+           EDATE_CHECK = EDATE
+       ENDIF
+       
+      IF( (MOD(JDATE_CHECK, DAYS_PER_YEAR) .GT. STOP_DATE_CHECK) .OR.
+     &    (JDATE_CHECK .EQ. STOP_DATE_CHECK .AND.  jtime .GT. STOP_TIME))THEN
+              WRITE(LOGDEV, *)'METCRO3D file begins after STOP_DATE ',
      &        STOP_DATE,' and STOP_TIME ', STOP_TIME
+              WRITE(LOGDEV, *)' *to ignore year set IGNORE_YEAR to any positive integer' 
               STOP
-       END IF
-
-       WRITE(LOGDEV, *)'METCRO3D file begins before or on STOP_DATE ',
-     & STOP_DATE,' and STOP_TIME ', STOP_TIME
-
-      IF( MOD(MOD(jdate, 1000), DAYS_PER_YEAR) .GT. MOD(STOP_DATE, 1000) )THEN
-             WRITE(LOGDEV, *)'METCRO3D file begins after to STOP_DATE ', STOP_DATE
-             STOP
-      ENDIF
-
-      IF( MOD(edate, 1000) .EQ. MOD(START_DATE, 1000)  .AND. etime .LT. START_TIME )THEN
-                WRITE(LOGDEV, *)'MET_CRO3D file ends prior to START_DATE ',
+      ELSEIF( (EDATE_CHECK .LT. START_DATE_CHECK) .OR.
+     &        (EDATE_CHECK .EQ. START_DATE_CHECK .AND. etime .LT. START_TIME)) THEN
+              WRITE(LOGDEV, *)'MET_CRO3D file ends prior to START_DATE ',
      &          START_DATE,' and START_TIME ', START_TIME
-                STOP
-       END IF
-
-       IF( MOD(edate, 1000) .LT. MOD(MOD(START_DATE, 1000), DAYS_PER_YEAR) .AND.
-     &        INT(jdate/1000) .EQ.  INT(edate/1000) )THEN
-                 WRITE(LOGDEV, *)'MET_CRO3D file ends prior to START_DATE ',
-     &           START_DATE
-                 STOP
-       END IF
+              WRITE(LOGDEV, *)' *to ignore year set IGNORE_YEAR to any positive integer' 
+              STOP
+      END IF
 
         WRITE(LOGDEV, *)'MET_CRO3D file ends before or on START_DATE ',
      &  START_DATE,' and START_TIME ', START_TIME
