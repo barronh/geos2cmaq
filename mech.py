@@ -30,9 +30,12 @@ def mechnml(inpath):
             if 'TYPE_MATRIX' in line:
                 start = True
         datstr = ''.join(lines).replace(',', '')
-        data = np.loadtxt(StringIO(datstr), delimiter = ':', usecols = [0, 1], dtype = np.dtype([('NAME', 'S120'), ('MOLWT', 'd')]))
-        spc_dat = dict(data)
-        spc_data[k] = spc_dat 
+        if datstr == '':
+            spc_data[k] = {}
+        else:
+            data = np.loadtxt(StringIO(datstr), delimiter = ':', usecols = [0, 1], dtype = np.dtype([('NAME', 'S120'), ('MOLWT', 'd')]))
+            spc_dat = dict(data)
+            spc_data[k] = spc_dat 
     return spc_data
 
 def mechinc(indict, convpath):
