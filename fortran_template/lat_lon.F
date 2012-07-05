@@ -43,7 +43,7 @@ C*************************************************************************
       IMPLICIT NONE     
 
 C..INCLUDE FILES:
-      INCLUDE SUBST_IOPARMS
+      INCLUDE "PARMS3.EXT"
 
 C..ARGUMENTS:
       INTEGER GDTYP     ! Grid type

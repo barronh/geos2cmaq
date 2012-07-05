@@ -18,9 +18,9 @@ C***********************************************************************
       IMPLICIT NONE
 
 C..INCLUDE FILES:
-      INCLUDE SUBST_IOPARMS
-      INCLUDE SUBST_IOFDESC
-      INCLUDE SUBST_IODECL
+      INCLUDE "PARMS3.EXT"
+      INCLUDE "FDESC3.EXT"
+      INCLUDE "IODECL3.EXT"
 
 
 C..ARGUMENTS:

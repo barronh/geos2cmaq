@@ -28,9 +28,9 @@ C-----------------------------------------------------------------------
 
       IMPLICIT NONE
 
-      INCLUDE SUBST_IOPARMS     ! IOAPI parameters
-      INCLUDE SUBST_IOFDESC     ! IOAPI file description
-      INCLUDE SUBST_IODECL      ! IOAPI declarations
+      INCLUDE "PARMS3.EXT"
+      INCLUDE "FDESC3.EXT"
+      INCLUDE "IODECL3.EXT"
 
 C...........PARAMETERS and their descriptions:
 
