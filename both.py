@@ -19,7 +19,7 @@ class geos(defaultdict):
         ids = []
         names = []
         for ti, tracer in enumerate(self._tracer_spcs):
-            names.append("     &                          '%s'" % tracer)
+            names.append("     &                          '%s'" % tracer.ljust(16))
             ids.append("      INTEGER  ::  GT_%-16s = %4d" % (tracer, ti + 1))
         out += ",\n".join(names)
         out += "\n     & /)\n\n"
@@ -32,14 +32,13 @@ class geos(defaultdict):
         names = []
         ids = []
         for ti, tracer in enumerate(self._cspec_spcs):
-            names.append("     &                          '%s'" % tracer)
+            names.append("     &                          '%s'" % tracer.ljust(16))
             ids.append("      INTEGER  ::  GS_%-16s =   %d" % (tracer, ti + 1))
         out += ",\n".join(names)
         out += "\n     & /)\n\n"
         out += '\n'.join(ids)
         out += '\n'
         return out
-
 
     def has_tracer(self, key):
         return key in self._tracer_spcs
@@ -93,5 +92,11 @@ class geos(defaultdict):
 
         
 if __name__ == '__main__':
+    import unittest
+    class TestGeos(unittest.TestCase):
+        def __init__(self, *args, **kwds):
+            pass
+        def run(self):
+            pass
     go = geos('/project/inf15w/bar/geos-chem/baseict/tracerinfo.dat',
               '/project/inf15w/bar/geos-chem/baseict/smv2.log')
