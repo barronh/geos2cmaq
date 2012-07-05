@@ -57,6 +57,6 @@ file('%s.MAP' % out, 'w').write(mappings)
 file('%s.PROFILE' % out, 'w').write(profiles)
 import shutil
 from glob import glob
-for f in glob(os.path.join(os.path.dirname(__file__), 'src', '*')):
+for f in glob(os.path.join(os.path.dirname(__file__), 'fortran_template', '*')):
     shutil.copy(f, outdir)
 
