@@ -1,68 +1,4 @@
-#MODEL = GC2CMAQ_SAPRC99.exe
- MODEL = GC2CMAQ.exe
-
-#compiler = pgf
- compiler = ifc
-
-
-ifeq ($(compiler),ifc)
-# Compiler Definitions
- FC   = /usr/local/intel/ictce/3.2.2.013/fc/bin/intel64/ifort
-
-# Include file subsitution definitions
- IOAPI_PATH = /home/wdx/lib/x86_64/ifc11/ioapi_3.1/Linux2_x86_64ifort
- IOAPI_INC = /home/wdx/lib/x86_64/ifc/ioapi_3.1/ioapi/fixed_src
- CPP_FLAGS = -DSUBST_GRID_ID= \
- -DSUBST_IOPARMS=\"$(IOAPI_INC)/PARMS3.EXT\" \
- -DSUBST_IOFDESC=\"$(IOAPI_INC)/FDESC3.EXT\" \
- -DSUBST_IODECL=\"$(IOAPI_INC)/IODECL3.EXT\"
-
-
-#Libraries
- IOAPI = -L$(IOAPI_PATH) -lioapi
- NETCDF = -L/home/wdx/lib/x86_64/ifc11/netcdf/lib -lnetcdf
- LIBRARIES = $(IOAPI) $(NETCDF)
-
-DEBUG = -CU -CB -traceback
-# Compiler Flags
- F_FLAGS = -C $(DEBUG) -extend_source -FI -O2 -132 -I $(IOAPI_INC) -I $(IOAPI_PATH)
-F_FLAGS    = -fixed -extend_source -132 -convert big_endian -O2 $(DEBUG) -I $(IOAPI_INC) -I $(IOAPI_PATH) -I .
-f_FLAGS    = -fixed -extend_source -132 -convert big_endian -O2 $(DEBUG) -I $(IOAPI_INC) -I $(IOAPI_PATH)  -I .
-
- LINK_FLAGS = -i_static
-
-else
-
-FC    = /usr/local/pgi/linux86-64/10.5/bin/pgf90
-LINKER = $(FC)
-
-
-ioapi_path = /home/wdx/lib/x86_64/pgf/ioapi_3.1/Linux2_x86_64pg
-
-IOAPI_INC =  /home/wdx/lib/src/ioapi_3.1/ioapi/fixed_src
-
- DEBUG = -g -C -traceback -Ktrap=divz,inv -Minform=warn -Mchkptr -Mchkfpstk
- DEBUG = -g -C -traceback -Ktrap=divz,inv -Minform=warn 
-#DEBUG = 
-
-F_FLAGS    = -Mfixed -Mextend -byteswapio -O2 -module . $(DEBUG) -I $(IOAPI_INC) -I $(ioapi_path) -I .
-f_FLAGS    = -Mfixed -Mextend -byteswapio -O2 -module . $(DEBUG) -I $(IOAPI_INC) -I $(ioapi_path) -I .
-F90_FLAGS    = -Mfree -O3 $(DEBUG)  -I $(IOAPI_INC) -I $(ioapi_path) -I .
-f90_FLAGS    = -Mfree -O3  $(DEBUG) -I $(IOAPI_INC) -I $(ioapi_path) -I .
-C_FLAGS    = -O2  -DFLDMN -I /home/wdx/lib/x86_64/pgf/mpich/include
-LINKER_FLAGS = -Bstatic  -Bstatic_pgi
-
-#   Library paths
-LIBRARIES = \
--L$(ioapi_path)  -lioapi \
--L/home/wdx/lib/x86_64/pgf/netcdf/lib -lnetcdf \
-
- CPP_FLAGS = -DSUBST_GRID_ID= \
- -DSUBST_IOPARMS=\"$(IOAPI_INC)/PARMS3.EXT\" \
- -DSUBST_IOFDESC=\"$(IOAPI_INC)/FDESC3.EXT\" \
- -DSUBST_IODECL=\"$(IOAPI_INC)/IODECL3.EXT\"
-
-endif
+MODEL = GC2CMAQ.exe
 
 #ckdesc3.o \
 # List of Object files needed for linking
@@ -86,20 +22,34 @@ OBJECTS = \
 
 .SUFFIXES: .F .f
 
+help:
+	@echo "--------------------------------------------------"
+	@echo "GC2CMAQ requires netcdf and ioapi (with m3utilio)."
+	@echo
+	@echo "These libraries and associated include files must be available via default search paths, or they can be provided to the compiler via the LDFLAGS and FFLAGS environmental variables"
+	@echo
+	@echo "e.g., with gfortran the call is as follows:"
+	@echo "FC=gfortran FFLAGS=\"-I/usr/local/include/ -I. -ffixed-line-length-none -fconvert=big-endian\" LD_FLAGS=\"-lioapi -lnetcdf -lnetcdff\" make all"
+	@echo
+	@echo "e.g., with intel the call is as follows:"
+	@echo "FC=ifort FFLAGS=\"-I/usr/local/include/ -I. -fixed -extend_source -132 -convert big_endian -O2\" LD_FLAGS=\"-lioapi -lnetcdf -lnetcdff\" make all"
+	@echo "--------------------------------------------------"
+	@echo
+	@echo
+    
+all: $(MODEL)
 
 $(MODEL): $(OBJECTS)
-	$(FC) $(LINK_FLAGS) $(OBJECTS) $(LIBRARIES) -o $@
+	$(FC) $(OBJECTS) $(LD_FLAGS) -o $@
 
 chem_map.o: MAPPING.MAP BPCH2_DATA.o CMAQ_DATA.o
 prof_map.o: MAPPING.PROFILE CMAQ_DATA.o prof_map.o
 BPCH2_DATA.o: MAPPING.CSPEC MAPPING.TRACER
 cmaq_data.o: MAPPING.MECH
 
-.F.o:
-	$(FC) -c $(F_FLAGS) $(CPP_FLAGS) $(INCLUDES) $<
+.f.o.F.o:
+	$(FC) -c $(F_FLAGS) $<
 
-.f.o:
-	$(FC) $(F_FLAGS) -c $<
 clean:
 	rm -f $(OBJECTS) $(MODEL) *.mod
 
