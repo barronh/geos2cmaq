@@ -43,7 +43,7 @@ def mechinc(indict, convpath):
     mech_spcs = [k for k, v in mapping(convpath)]
     for spc_typ, spc_dat in indict.iteritems():
         if spc_typ == 'AE':
-            unit = "micrograms / m**3".ljust(16)
+            unit = "micrograms/m**3".ljust(16)
         else:
             unit = 'ppmV'.ljust(16)
         for spcn, spcw in spc_dat.iteritems():
