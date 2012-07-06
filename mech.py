@@ -51,7 +51,7 @@ def mechinc(indict, convpath):
             unit = 'ppmV'.ljust(16)
         for spcn, spcw in spc_dat.iteritems():
             if not spcn in mech_spcs: continue
-            units.append('# / m**3' if spcn[:3] == 'NUM' and spc_typ == 'AE' else unit)
+            units.append('# / m**3'.ljust(16) if spcn[:3] == 'NUM' and spc_typ == 'AE' else unit)
             names.append(spcn.ljust(16))
     out += "      INTEGER, PARAMETER :: NSPC_CMAQ = %d\n" % len(names)
     out += "      CHARACTER( 16 )  :: CMAQ_SNAME( NSPC_CMAQ ) = ( /\n"
