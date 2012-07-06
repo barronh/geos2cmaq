@@ -1,5 +1,5 @@
-      SUBROUTINE CHEM_MAP( NBDY, BC1_GT_VERT, BC1_GS_VERT, BC2, 
-     &                     JDATE, JTIME )
+      SUBROUTINE CHEM_MAP( NBDY, BC1_GT_VERT, BC1_GS_VERT, BC1_PF_VERT, 
+     &                     BC2, JDATE, JTIME )
 
 C***********************************************************************
 C
@@ -16,6 +16,7 @@ C***********************************************************************
       USE UTILIO_DEFN
       USE GEO_DATA
       USE CMAQ_DATA
+      USE PROFILE_DATA
 
       IMPLICIT NONE
 
@@ -25,6 +26,7 @@ C..ARGUMENTS:
       INTEGER, INTENT( IN ) :: NBDY
       REAL, INTENT( IN )    :: BC1_GT_VERT( :, :, : )
       REAL, INTENT( IN )    :: BC1_GS_VERT( :, :, : )
+      REAL, INTENT( IN )    :: BC1_PF_VERT( :, :, : )
       REAL, INTENT( INOUT ) :: BC2( :, :, : )
       
 
