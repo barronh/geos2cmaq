@@ -105,7 +105,6 @@ C..SCRATCH LOCAL VARIABLES:
       REAL, ALLOCATABLE  :: BDY_GT( : , : , : )
       REAL, ALLOCATABLE  :: BDY_GT_VERT( : , : , : )
       REAL, ALLOCATABLE  :: BDY_GS_VERT( : , : , : )
-      REAL, ALLOCATABLE  :: BDY_PF_VERT( : , : , : )
       REAL, ALLOCATABLE  :: BDY2( : , : , : )
       REAL, ALLOCATABLE  :: BCOUT( : , : )
 
@@ -403,7 +402,6 @@ C WTH assume BC step same as METBDY3D file
       ! allocate arrays for output data
       ALLOCATE( BDY_GT_VERT( NBDY, NLAYS3D, NSPC_GT ) )
       ALLOCATE( BDY_GS_VERT( NBDY, NLAYS3D, NSPC_GS ) )
-      ALLOCATE( BDY_PF_VERT( NBDY, NLAYS3D, NSPC_PF ) )
       ALLOCATE( BDY2( NBDY, NLAYS3D, NVARS3D ) )
       ALLOCATE( BCOUT( NBDY, NLAYS3D ) )
 
@@ -472,7 +470,7 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Convert GEO species to CMAQ species
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
-      CALL CHEM_MAP( NBDY, BDY_GT_VERT, BDY_GS_VERT, BDY_PF_VERT, 
+      CALL CHEM_MAP( NBDY, BDY_GT_VERT, BDY_GS_VERT, BDY_PF, 
      &               BDY2, jdate, jtime)
 
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -535,7 +533,6 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
       DEALLOCATE( BDY_GT_VERT )
       DEALLOCATE( BDY_GS_VERT )
-      DEALLOCATE( BDY_PF_VERT )
       DEALLOCATE( BDY2 )
       DEALLOCATE( BCOUT )
 
