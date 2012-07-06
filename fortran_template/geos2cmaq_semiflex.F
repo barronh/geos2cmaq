@@ -15,6 +15,7 @@ C***********************************************************************
       USE GEO_DATA
       USE CGRID_SPCS
       USE CMAQ_DATA
+      USE PROFILE_DATA
 
       IMPLICIT NONE
 
@@ -65,8 +66,6 @@ C..SCRATCH LOCAL VARIABLES:
       INTEGER            ::  START_TIME = 0
       INTEGER            ::  STOP_DATE  = 0
       INTEGER            ::  STOP_TIME  = 0
-      INTEGER            ::  START_DATE_CHECK = 0
-      INTEGER            ::  STOP_DATE_CHECK  = 0
       INTEGER            ::  LOGDEV           ! Unit number for output log
       INTEGER            ::  NBDY
       INTEGER            ::  NCELL
@@ -75,7 +74,7 @@ C..SCRATCH LOCAL VARIABLES:
       INTEGER            ::  STRT
       INTEGER            ::  FINI
       INTEGER            ::  STATUS
-      INTEGER            ::  NSTEPS  = 24
+!      INTEGER            ::  NSTEPS  = 24
       INTEGER            ::  NT
       INTEGER            ::  MET_TSTEP
       INTEGER            ::  BC_TSTEP
@@ -101,32 +100,18 @@ C..SCRATCH LOCAL VARIABLES:
 
       REAL, ALLOCATABLE  :: LON_CMAQ(  :  )
       REAL, ALLOCATABLE  :: LAT_CMAQ(  : )
-c     REAL, ALLOCATABLE  :: CGRID_GT( : , :, :, :, : )
-c     REAL, ALLOCATABLE  :: CGRID_GS( : , :, :, :, : )
 
       REAL, ALLOCATABLE  :: BDY_GS( : , : , : )
       REAL, ALLOCATABLE  :: BDY_GT( : , : , : )
       REAL, ALLOCATABLE  :: BDY_GT_VERT( : , : , : )
       REAL, ALLOCATABLE  :: BDY_GS_VERT( : , : , : )
+      REAL, ALLOCATABLE  :: BDY_PF_VERT( : , : , : )
       REAL, ALLOCATABLE  :: BDY2( : , : , : )
-      REAL, ALLOCATABLE  :: BDY3( : , : , : )
       REAL, ALLOCATABLE  :: BCOUT( : , : )
 
-c     integer :: nc=55
-c     integer :: hsp=3
-c     integer :: csp=1
       INTERFACE
-        SUBROUTINE CMAQ_PROFILE_BDY( LOGUNIT, N_BDY, BDY_OUT )
-           USE UTILIO_DEFN
-           USE CGRID_SPCS
-           USE CMAQ_DATA
-           IMPLICIT NONE     
-           INTEGER, INTENT( IN  ) :: LOGUNIT
-           INTEGER, INTENT( IN  ) :: N_BDY
-           REAL,    INTENT( OUT ) :: BDY_OUT( :, :, :)
-        END SUBROUTINE CMAQ_PROFILE_BDY
-        SUBROUTINE CHEM_MAP( NBDY, BC1_GT_VERT, BC1_GS_VERT, BC2, 
-     &                     JDATE, JTIME )
+        SUBROUTINE CHEM_MAP( NBDY, BC1_GT_VERT, BC1_GS_VERT, BC1_PF_VERT, 
+     &                     BC2, JDATE, JTIME )
            USE UTILIO_DEFN
            USE GEO_DATA
            USE CMAQ_DATA
@@ -135,6 +120,7 @@ c     integer :: csp=1
            Integer, Intent( IN  ) :: JDATE, JTIME
            REAL, INTENT( IN )    :: BC1_GT_VERT( :, :, : )
            REAL, INTENT( IN )    :: BC1_GS_VERT( :, :, : )
+           REAL, INTENT( IN )    :: BC1_PF_VERT( :, :, : )
            REAL, INTENT( INOUT ) :: BC2( :, :, : )
         END SUBROUTINE CHEM_MAP
       END INTERFACE 
@@ -166,10 +152,10 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       etime      = STIME3D
       
       MET_TSTEP = TSTEP3D
-      
       DO NT = 1, MXREC3D - 1
          Call Nextime( edate, etime, MET_TSTEP )
       END Do
+      WRITE(LOGDEV, *) 'NEXTTIME', NT, MXREC3D, EDATE, ETIME
 
       IF( MOD( INT(jdate/1000), 4) .EQ. 0 )THEN
           DAYS_PER_YEAR = 366
@@ -196,7 +182,7 @@ C...get starting date and time
        END IF
        
        IF ( IGNORE_YEAR .GT. 0) THEN
-           WRITE(LOGDEV, *)'METCRO3D date (', jdate, ') and start date (', START_DATE, ') have different years.'
+           WRITE(LOGDEV, *)'METBDY3D date (', jdate, ') and start date (', START_DATE, ') have different years.'
            WRITE(LOGDEV, *)' *** PROCEEDING with surrogate year *** '           
            JDATE_CHECK = MOD(JDATE, 1000) + START_DATE / 1000
            EDATE_CHECK = MOD(EDATE, 1000) + START_DATE / 1000
@@ -210,22 +196,19 @@ C...get starting date and time
            EDATE_CHECK = EDATE
        ENDIF
        
-      IF( (MOD(JDATE_CHECK, DAYS_PER_YEAR) .GT. STOP_DATE_CHECK) .OR.
-     &    (JDATE_CHECK .EQ. STOP_DATE_CHECK .AND.  jtime .GT. STOP_TIME))THEN
-              WRITE(LOGDEV, *)'METCRO3D file begins after STOP_DATE ',
+      IF( (JDATE_CHECK .GT. STOP_DATE) .OR.
+     &    (JDATE_CHECK .EQ. STOP_DATE .AND.  jtime .GT. STOP_TIME))THEN
+              WRITE(LOGDEV, *)'METBDY3D file ', JDATE_CHECK,' begins after STOP_DATE ',
      &        STOP_DATE,' and STOP_TIME ', STOP_TIME
               WRITE(LOGDEV, *)' *to ignore year set IGNORE_YEAR to any positive integer' 
               STOP
-      ELSEIF( (EDATE_CHECK .LT. START_DATE_CHECK) .OR.
-     &        (EDATE_CHECK .EQ. START_DATE_CHECK .AND. etime .LT. START_TIME)) THEN
-              WRITE(LOGDEV, *)'MET_CRO3D file ends prior to START_DATE ',
+      ELSEIF( (EDATE_CHECK .LT. START_DATE) .OR.
+     &        (EDATE_CHECK .EQ. START_DATE .AND. etime .LT. START_TIME)) THEN
+              WRITE(LOGDEV, *)'METBDY3D file ends prior to START_DATE ',
      &          START_DATE,' and START_TIME ', START_TIME
               WRITE(LOGDEV, *)' *to ignore year set IGNORE_YEAR to any positive integer' 
               STOP
       END IF
-
-        WRITE(LOGDEV, *)'MET_CRO3D file ends before or on START_DATE ',
-     &  START_DATE,' and START_TIME ', START_TIME
 
       bpchYear = ENVINT('BPCH_YEAR','Reset year for BPCH data',0,status) 
 
@@ -282,7 +265,7 @@ c..West Edge
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Read in the GEO 3 hour data
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-
+      Call LoadPROF(LOGDEV, NBDY)
       Call LoadGEO( jdate, jtime, status )
 
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -318,40 +301,29 @@ C Set CGRID mechanism
           MSG = 'Error in CGRID_SPCS:CGRID_SPCS_INIT'
           CALL M3EXIT ( PNAME, JDATE, JTIME, MSG, XSTAT1  )
       END IF
-
       CALL DEFINE_CMAQ_UNITS
-      CALL CMAQ_PROFILE_BDY( LOGDEV, NBDY, BDY3 )  
 
-      NVARS3D = NSPC_CMAQ + NSPC_DFLT
+      NVARS3D = NSPC_CMAQ
 c SLN - replace TSTEP3D to 10000 from 30000
-C WTH assume BC step same as METCRO3D file
+C WTH assume BC step same as METBDY3D file
       BC_TSTEP = MET_TSTEP
-
       DO V = 1, NSPC_CMAQ
          VNAME3D( V ) = CMAQ_SNAME( V )
          VDESC3D( V ) = CMAQ_LNAME( V )
          UNITS3D( V ) = CMAQ_UNITS( V )
          VTYPE3D( V ) = M3REAL
-!         write( logdev, '(i3,1x,3(a16,1x),i3)')V,CMAQ_SNAME( V ),CMAQ_LNAME( V ),
-!     &                                         CMAQ_UNITS( V ), M3REAL
+#ifdef verbose
+         write( logdev, '(i3,1x,3(a16,1x),i3)')V,CMAQ_SNAME( V ),CMAQ_LNAME( V ),
+     &      CMAQ_UNITS( V ), M3REAL
+#endif
       ENDDO
-                                                                
-      N = 0                                                     
-      DO V = NSPC_CMAQ + 1, NVARS3D                             
-         N = N + 1                                              
-         VNAME3D( V ) = DFLT_SNAME( N )                         
-         VDESC3D( V ) = DFLT_LNAME( N )                         
-         UNITS3D( V ) = DFLT_UNITS( N )                         
-         VTYPE3D( V ) = M3REAL                                  
-!         write( logdev, '(i3,1x,3(a16,1x),i3)')N,DFLT_SNAME( N ),DFLT_LNAME( N ),
-!     &                                   DFLT_UNITS( N ),M3REAL
-      ENDDO                                                     
-      
+                                                                      
+#ifdef verbose
       DO V = 1, NVARS3D
-!         write( logdev, '(i3,1x,3(a16,1x),i3)')V,VNAME3D( V ),VDESC3D( V ),
-!     &                                  UNITS3D( V ),VTYPE3D( V )
+         write( logdev, '(i3,1x,3(a16,1x),i3)')V,VNAME3D( V ),VDESC3D( V ),
+     &                                  UNITS3D( V ),VTYPE3D( V )
       END DO                                                          
-
+#endif
       IF( MOD(jdate, 1000) .EQ. MOD(STOP_DATE, 1000)  .AND.  jtime .GT. STOP_TIME )THEN
               WRITE(LOGDEV, *)'GEOSCHEM files begin after STOP_DATE ',
      &        STOP_DATE,' and STOP_TIME ', STOP_TIME
@@ -370,7 +342,7 @@ C WTH assume BC step same as METCRO3D file
       edate      = jdate
       etime      = jtime
 
-      DO NT = 1, NSTEPS - 1
+      DO NT = 1, MXREC3D - 1
          Call Nextime( edate, etime, TSTEP3D )
       END Do
 
@@ -394,9 +366,6 @@ C WTH assume BC step same as METCRO3D file
               MDATE    = SDATE3D
               MTIME    = STIME3D
               BC_TSTEP = TSTEP3D
-              DO NT = 1, 0 ! NSTEPS ! MXREC3D - 1
-                 CALL NEXTIME( MDATE, MTIME, TSTEP3D )
-              END DO
               IF( MOD( MDATE, 1000) .EQ. 1 .AND. MTIME .EQ. 0 )THEN 
 !       weird fix when MDATE start at new years
                  IF( MXREC3D .GT. 0 )THEN
@@ -434,8 +403,8 @@ C WTH assume BC step same as METCRO3D file
       ! allocate arrays for output data
       ALLOCATE( BDY_GT_VERT( NBDY, NLAYS3D, NSPC_GT ) )
       ALLOCATE( BDY_GS_VERT( NBDY, NLAYS3D, NSPC_GS ) )
-      ALLOCATE( BDY2( NBDY, NLAYS3D, NSPC_CMAQ ) )
-      ALLOCATE( BDY3( NBDY, NLAYS3D, NSPC_DFLT ) )
+      ALLOCATE( BDY_PF_VERT( NBDY, NLAYS3D, NSPC_PF ) )
+      ALLOCATE( BDY2( NBDY, NLAYS3D, NVARS3D ) )
       ALLOCATE( BCOUT( NBDY, NLAYS3D ) )
 
 c     if( status.ne.0 ) EXIT
@@ -449,7 +418,7 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  start time loop to read and process each timestep  
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
-      LOOP_TIME : Do NT= 1, NSTEPS ! time loop
+      LOOP_TIME : Do NT= 1, MXREC3D ! time loop
 
        IF( MOD(jdate, 1000) .LT. MOD(MDATE, 1000) )THEN
          Call Nextime( jdate, jtime, MET_TSTEP )
@@ -503,7 +472,8 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Convert GEO species to CMAQ species
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
-      CALL CHEM_MAP( NBDY, BDY_GT_VERT, BDY_GS_VERT, BDY2, jdate, jtime)
+      CALL CHEM_MAP( NBDY, BDY_GT_VERT, BDY_GS_VERT, BDY_PF_VERT, 
+     &               BDY2, jdate, jtime)
 
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Fix any negative concs
@@ -521,12 +491,6 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
          ENDDO
       ENDDO
 
-ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-c  Add defaults for species not available from GEO files
-ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-      IF( NSPC_DFLT .GT. 0 )THEN
-        CALL CMAQ_PROFILE_BDY( LOGDEV, NBDY, BDY3 )  
-      END IF                                                              
 
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Write to output file 
@@ -536,25 +500,10 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       L = NLAYS3D
 
       S = 0
-      LOOP_VAR: DO V = 1, NVARS3D
+      LOOP_VAR: DO V = 1, NSPC_CMAQ
 
-         IF( V .LE. NSPC_CMAQ ) THEN
+         BCOUT( 1:NBDY, 1:NLAYS3D ) = BDY2( 1:NBDY, 1:NLAYS3D, V )
 
-             BCOUT( 1:NBDY, 1:NLAYS3D ) = BDY2( 1:NBDY, 1:NLAYS3D, V )
-
-         ELSE
-
-             S = S + 1
-             BCOUT( 1:NBDY, 1:NLAYS3D ) = BDY3( 1:NBDY, 1:NLAYS3D, S )
-
-!             DO  N = 1, NBDY
-!                IF(  BCOUT( N, 1 ) .LE. 1.0E-12 )THEN
-!                    WRITE( LOGDEV, * )TRIM(DFLT_LNAME( S )),' at N = ', N,
-!     &              ' equals ',BCOUT( N, 1 ),' in layer 1.'
-!                END IF
-!             END DO
-
-         ENDIF
 
          IF( .NOT. WRITE3( BC_FNAME, VNAME3D( V ), MDATE, MTIME,
      &                     BCOUT( 1, 1 ) ) ) THEN
@@ -586,8 +535,8 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
       DEALLOCATE( BDY_GT_VERT )
       DEALLOCATE( BDY_GS_VERT )
+      DEALLOCATE( BDY_PF_VERT )
       DEALLOCATE( BDY2 )
-      DEALLOCATE( BDY3 )
       DEALLOCATE( BCOUT )
 
 
