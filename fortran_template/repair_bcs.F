@@ -124,7 +124,7 @@ C                           name, ind, mode, density
      & speciesstruct (   'ACORS',   0,    3, RHOANTH),
      & speciesstruct (   'ANH4K',   0,    3,  RHONH4),
      & speciesstruct (   'ANO3K',   0,    3,  RHONO3),
-     & speciesstruct ('ASEACATK',   0,    3, RHOSEAS),
+     & speciesstruct ( 'ASEACAT',   0,    3, RHOSEAS),
      & speciesstruct (   'ASO4K',   0,    3,  RHOSO4),
      & speciesstruct (   'ASOIL',   0,    3, RHOSOIL) /)
 
