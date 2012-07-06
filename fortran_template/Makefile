@@ -7,12 +7,9 @@ OBJECTS = \
  CGRID_SPCS.o \
  CMAQ_DATA.o \
  BPCH2_DATA.o \
+ prof_data.o \
  geos2cmaq_semiflex.o \
  chem_map.o \
- cmaq_prof_driver.o \
- gc_spc_map.o \
- ngc_spc_map.o \
- lst_spc_map.o \
  findex.o \
  lat_lon.o \
  vinterp.o \
