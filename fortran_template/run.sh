@@ -70,9 +70,9 @@ fi
   export SDATE=${START_DATE}
   export EDATE=${STOP_DATE}
   export START_DATE=`date -d "$CURDATE" +"%Y%j"`
-  export START_TIME="000000"
+  export START_TIME="230000"
   export STOP_DATE=`date -d "${STOP_DATE}" +"%Y%j"`
-  export STOP_TIME="000000"
+  export STOP_TIME="010000"
   export repair_date=`date -d "$EDATE -1 day" +"%Y%m%d"`
 
   while [[ $CURDATE != $EDATE ]]
