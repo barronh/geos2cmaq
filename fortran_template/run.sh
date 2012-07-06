@@ -67,19 +67,21 @@ if [[ -e "${BC_FNAME}" ]]; then
     rm -f "${BC_FNAME}"
 fi
 
+  export SDATE=${START_DATE}
+  export EDATE=${STOP_DATE}
   export START_DATE=`date -d "$CURDATE" +"%Y%j"`
   export START_TIME="000000"
   export STOP_DATE=`date -d "${STOP_DATE}" +"%Y%j"`
   export STOP_TIME="000000"
   export repair_date=`date -d "$EDATE -1 day" +"%Y%m%d"`
 
-  while [ $CURDATE != $EDATE ]
+  while [[ $CURDATE != $EDATE ]]
   do
     thisdate=$CURDATE
     thismo=`date -d "$CURDATE" +%m`
     thisjdate=`date -d "${thisdate}" +"%Y%j"`  
     thisdate_nom=`date -d "${thisdate}" +"%y%m%d"`  
-    export MET_BDY_3D=${MCIP}"/METBDY3D_"${thisdate_nom}
+    export MET_BDY_3D=METBDY3D_${thisdate_nom}
     if [[ ! -e $MET_BDY_3D ]]; then
         echo "MCIP file ${MET_BDY_3D} could not be found"
         echo "MCIP files should be retrieved from ASM prior to running"
@@ -87,26 +89,24 @@ fi
     fi
     export GT_FILE="BC."${thisdate}
     export GS_FILE="BC.CSPEC."${thisdate}
-    if [[ ! -e ../GEOS/${GT_FILE} ]]; then
-      echo "GEOS file ../GEOS/${GT_FILE} could not be found"
-      echo "GEOS BC files should be retrieved prior to running"
-      exit()
-    fi
-    export GT_FILE="../GEOS/${GT_FILE}"
-    if [[ ! -e ../GEOS/${GS_FILE} ]]; then
-      echo "GEOS file ../GEOS/${GS_FILE} could not be found"
+    if [[ ! -e ${GT_FILE} ]]; then
+      echo "GEOS file ${GT_FILE} could not be found"
       echo "GEOS BC files should be retrieved prior to running"
       exit
     fi
-    export GS_FILE="../GEOS/${GS_FILE}"
-    export GEO_INPUT_PATH="../GEOS/"
+    export GT_FILE="${GT_FILE}"
+    if [[ ! -e ${GS_FILE} ]]; then
+      echo "GEOS file ${GS_FILE} could not be found"
+      echo "GEOS BC files should be retrieved prior to running"
+      exit
+    fi
+    export GS_FILE="${GS_FILE}"
+    export GEO_INPUT_PATH="./"
     export REPAIR="F"
     if [[ $thisdate == ${repair_date} ]]; then
       export REPAIR="T"
     fi 
     echo $thisdate ${REPAIR}
-    ${EXEC}>& ${SDATE}_${thisdate}.log
+    ./GC2CMAQ.exe >& ${SDATE}_${thisdate}.log
     CURDATE=`date -d "$CURDATE +1 day" +%Y%m%d`
   done
-exit() 
-
