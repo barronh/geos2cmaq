@@ -214,7 +214,7 @@ C  read record of data values and fill array
 
       do NCOUNT = 1, NSPC_GT
 
-        read(GEO_UNIT,iostat=status) modelName, modelRes, halfpolar, center180   
+        read(GEO_UNIT,iostat=status,end=100) modelName, modelRes, halfpolar, center180   
         if( status.ne.0 ) then
           write(*,'(''**ERROR** cannot read data model header record'')')
           found = .false.
@@ -224,7 +224,7 @@ C  read record of data values and fill array
         read(GEO_UNIT,iostat=status) category, tracer, unit, tau0, tau1,         
      &                         reserved, dim, skip
         IF (tracer.ne.NCOUNT) THEN
-          write(*,'(''**ERROR** Tracer expected (i4); tracer found (i4)'')'), NCOUNT, tracer
+          write(*,'(''ERROR Tracer expected'' (i4)''; tracer found'' (i4))'), NCOUNT, tracer
           STOP
         ENDIF
         IF (FIRSTREAD) THEN
@@ -238,8 +238,8 @@ C  read record of data values and fill array
           print*,'Poles are at half resolution: ', halfpolar
 !         N_GEO_LAYS = dim(3)
           ALLOCATE( BUFFER( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS) )
-          ALLOCATE( CGRID_GT( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GT, 24 ) )
-          ALLOCATE( CGRID_GS( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GS, 24 ) )
+          ALLOCATE( CGRID_GT( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GT, 25 ) )
+          ALLOCATE( CGRID_GS( NCOLS_GEO, NROWS_GEO, N_GEO_LAYS, NSPC_GS, 25 ) )
           CGRID_GT = -0.00001
           CGRID_GS = -0.00001
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -378,7 +378,7 @@ C  read record of data values and fill array
 
         if( NCOUNT.gt.NSPC_GS ) EXIT
 
-        read(GEO_UNIT,iostat=status) modelName, modelRes, halfpolar, center180
+        read(GEO_UNIT,iostat=status,end=101) modelName, modelRes, halfpolar, center180
         if( status.ne.0 ) then
           write(*,'(''**ERROR** cannot read data header record 1'')')
           goto 101
