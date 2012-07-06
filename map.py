@@ -1,4 +1,5 @@
 from both import geos
+from profile import profile
 from warnings import warn
 import re
 
@@ -22,7 +23,7 @@ def mapping(mappath):
     rows = [row for row in rows if row[1].upper() not in ('PROFILE', '')] # Ignore profiles
     return rows
 
-def map(spc_data, mappath, mapo):
+def map(spc_data, mappath, mapo, profo):
     intext = mapping(mappath)
     # old mapping reader - [kv for kv in [kv.split(',') for kv in file(mappath).read().strip().split('\n')[1:] if kv[0] != '#'] if len(kv) > 1 and kv[-1].strip() != '']
     ks = set([k for k, v in intext])
@@ -35,9 +36,13 @@ def map(spc_data, mappath, mapo):
     print
     print 'Unmapped MECH:', ' '.join(nmapped)
     print
+    print 'Unmapped species might be available:'
+    print ' - in TRACER data:', ' '.join([spc for spc in nmapped if mapo.has_tracer(spc)])
+    print ' - in CSPEC  data:', ' '.join([spc for spc in nmapped if mapo.has_cspec(spc)])
+    print ' - in PROFILE data:', ' '.join([spc for spc in nmapped if spc in profo])
+    print 
     outs = []
-    prof_ids = []
-    prof_maps = []
+    nprof = 0
     for k, v in intext:
         if k in mechspcs:
             start = '      BC2( 1:N, 1:L, C_%s )' % k
@@ -52,25 +57,25 @@ def map(spc_data, mappath, mapo):
                 mapo.aero(False)
             try:
                 out = start % (var.sub(r'%(\1)s', v) % mapo)
-            except KeyError:
-                if v.strip()[:8] == 'PROFILE_':
-                    PROFKEY = '_'.join(v.split('_')[1:])
-                    prof_ids.append("       INTEGER :: P_%-16s = INDEX1( '%-16s', NSPC_PROF, PROF_SP_NAME )" % (k, PROFKEY.strip()))
-                    prof_maps.append("       BC3P( 1:N, 1:L, C_%-16s) = BC2P( 1:N, 1:L, P_%-16s)" % (k, k))
-                else:
-                    raise
+            except KeyError, e1:
+                try:
+                    out = start % (var.sub(r'%(\1)s', v) % profo)
+                    nprof += 1
+                except KeyError, e2:
+                    raise KeyError('Variable not found in either GEOS-Chem or Profile data\n\n' + str(e1) + '\n' + str(e2))
         else:
             warn("Skipping %s; not in mech" % k)
 
         
         outs.append(out)
-    prof_out = '\n\n'.join(['\n'.join(prof_ids), '\n'.join(prof_maps)])
     mapo.check()
-    return '\n'.join(outs), prof_out, len(prof_ids)
+    return '\n'.join(outs), nprof
 
 if __name__ == '__main__':
     from both import geos
+    from profile import profile
     go = geos('testdata/tracerinfo.dat',
                   'testdata/smv2.log')
+    po = geos('testdata/profile.dat')
     from mech import mechext as mech
-    map(mech('testdata'), 'mapping/saprc07t.csv', go)
+    map(mech('testdata'), 'mapping/saprc07t.csv', go, po)
