@@ -1,0 +1,9 @@
+All files should be considered static except for
+MAPPING.MECH - Definition of chemical mechanism
+MAPPING.TRACER - Definition of GEOS-Chem tracer contents
+MAPPING.CSPEC - Definition of GEOS-Chem CSPEC contents
+MAPPING.PROFILE - Definition of PROFILE contents
+MAPPING.MAP - Definition of MAPPING from tracer, cspec and profile
+GEOS_DOMAIN.INC - Spatial definitions of GEOS-Chem run
+
+You can create new versions of the MAPPING files using geos2cmaq, or you can modify them directly.
