@@ -21,8 +21,6 @@ c..Horizontal Grid data
       INTEGER :: NCOLS_GEO
       INTEGER :: NROWS_GEO
 
-      REAL, PARAMETER    :: DEL_LON = 2.5
-      REAL, PARAMETER    :: DEL_LAT = 2.0
       REAL, ALLOCATABLE  :: LON_GEO(   : , : )
       REAL, ALLOCATABLE  :: LAT_GEO(   : , : )
       REAL, ALLOCATABLE  :: CGRID_GT( : , :, :, :, : )
@@ -30,64 +28,9 @@ c..Horizontal Grid data
 
 c..Redefinition of record's year
       INTEGER   bpchYear, SKIP_COLS, SKIP_ROWS
-
-c..Vertical coordinate levels
-
-c SLN (14Mar2011) - sigma levels come from http://acmg.seas.harvard.edu/geos/doc/man/
-      INTEGER, PARAMETER  :: N_GEO_LAYS = 47  ! GEOS-5 reduced
-      REAL                :: GEO_SIGMA( N_GEO_LAYS + 1 ) = ( /
-     &                                                    1.000000, 
-     &                                                    0.984999, 
-     &                                                    0.969913, 
-     &                                                    0.954828, 
-     &                                                    0.939743, 
-     &                                                    0.924658, 
-     &                                                    0.909573, 
-     &                                                    0.894489, 
-     &                                                    0.879406, 
-     &                                                    0.864323, 
-     &                                                    0.849239, 
-     &                                                    0.834157, 
-     &                                                    0.819075, 
-     &                                                    0.798967, 
-     &                                                    0.773832, 
-     &                                                    0.748698, 
-     &                                                    0.723570, 
-     &                                                    0.698442, 
-     &                                                    0.673314, 
-     &                                                    0.635628, 
-     &                                                    0.597953, 
-     &                                                    0.560278, 
-     &                                                    0.522620, 
-     &                                                    0.484970, 
-     &                                                    0.447337, 
-     &                                                    0.409720, 
-     &                                                    0.372133, 
-     &                                                    0.334566, 
-     &                                                    0.285142, 
-     &                                                    0.242032, 
-     &                                                    0.205513, 
-     &                                                    0.174608, 
-     &                                                    0.148418, 
-     &                                                    0.126157, 
-     &                                                    0.107233, 
-     &                                                    0.091149, 
-     &                                                    0.077477, 
-     &                                                    0.055641, 
-     &                                                    0.039641, 
-     &                                                    0.027987, 
-     &                                                    0.019523, 
-     &                                                    0.009162, 
-     &                                                    0.004013, 
-     &                                                    0.001619, 
-     &                                                    0.000599, 
-     &                                                    0.000199, 
-     &                                                    0.000055, 
-     &                                                    0.000000 / )
-
-      REAL :: GEO_TOP = 0.01    ! pressure at the top in hPa
       integer :: i, j, k
 
+#include <GEOS_DOMAIN.INC>
 
 c SLN (14Mar2011) species list in GEOSChem tracer file
 #include <MAPPING.TRACER>
