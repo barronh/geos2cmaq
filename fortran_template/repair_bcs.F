@@ -50,7 +50,7 @@ C...........PARAMETERS and their descriptions:
       REAL,    PARAMETER :: DGINIAC = 0.07E-6  ! geometric mean diameter for accum  mode [ m ]
       REAL,    PARAMETER :: DGINICO = 1.0E-6   ! geometric mean diameter for coarse mode [ m ]
       REAL,    PARAMETER :: CONMIN  = 1.0E-30  ! minimum concentration [ ug/m**3 ]
-      integer, parameter :: nspecies = 52      ! number of aerosol species treated
+      integer, parameter :: nspecies = 57      ! number of aerosol species treated
 
 C...........Argument VARIABLES
       CHARACTER(  16 ) :: BC_FILE
@@ -63,70 +63,80 @@ C...........LOCAL VARIABLES (scalars) and their descriptions:
 
       INTEGER  JDATE      ! current model date, coded YYYYDDD
       INTEGER  JTIME      ! current model time, coded HHMMSS
+      INTEGER VVERSION    ! variable version
+      INTEGER NOTFOUND    ! integer of last missing variables version
 
       Type speciesstruct
            Character(16) :: name    ! species name in BC file
            INTEGER       :: ind     ! index in array
            INTEGER       :: mode    ! 1: Aitken, 2: accumulation, 3: coarse
            REAL          :: density ! species density
+           INTEGER       :: version ! 0: All, 5: AE5, 6: AE6
+           LOGICAL       :: found   ! In file: true
       end type speciesstruct
 
 C...identification of aerosol species, mode, and density
 C   that contribute to Aitken, Accumulation, and Coarse aerosol
       Type( speciesstruct ), save :: bcspecies( nspecies ) = (/
-C                           name, ind, mode, density
-     & speciesstruct (    'ACLI',   0,    1, RHOSEAS),
-     & speciesstruct (    'AECI',   0,    1, RHOANTH),
-     & speciesstruct (    'ANAI',   0,    1, RHOSEAS),
-     & speciesstruct (   'ANH4I',   0,    1,  RHONH4),
-     & speciesstruct (   'ANO3I',   0,    1,  RHONO3),
-     & speciesstruct (  'AOTHRI',   0,    1, RHOANTH),
-     & speciesstruct ( 'APNCOMI',   0,    1,  RHOORG),
-     & speciesstruct (   'APOCI',   0,    1,  RHOORG),
-     & speciesstruct (   'ASO4I',   0,    1,  RHOSO4),
-     & speciesstruct (    'AALJ',   0,    2, RHOSOIL),
-     & speciesstruct (   'AALKJ',   0,    2,  RHOORG),
-     & speciesstruct (  'ABNZ1J',   0,    2,  RHOORG),
-     & speciesstruct (  'ABNZ2J',   0,    2,  RHOORG),
-     & speciesstruct (  'ABNZ3J',   0,    2,  RHOORG),
-     & speciesstruct (    'ACAJ',   0,    2, RHOSOIL),
-     & speciesstruct (    'ACLJ',   0,    2, RHOSEAS),
-     & speciesstruct (    'AECJ',   0,    2, RHOANTH),
-     & speciesstruct (    'AFEJ',   0,    2, RHOSOIL),
-     & speciesstruct (  'AISO1J',   0,    2,  RHOORG),
-     & speciesstruct (  'AISO2J',   0,    2,  RHOORG),
-     & speciesstruct (  'AISO3J',   0,    2,  RHOORG),
-     & speciesstruct (     'AKJ',   0,    2, RHOSOIL),
-     & speciesstruct (    'AMGJ',   0,    2, RHOSEAS),
-     & speciesstruct (    'AMNJ',   0,    2, RHOSOIL),
-     & speciesstruct (    'ANAJ',   0,    2, RHOSEAS),
-     & speciesstruct (   'ANH4J',   0,    2,  RHONH4),
-     & speciesstruct (   'ANO3J',   0,    2,  RHONO3),
-     & speciesstruct (  'AOLGAJ',   0,    2,  RHOORG),
-     & speciesstruct (  'AOLGBJ',   0,    2,  RHOORG),
-     & speciesstruct (  'AORGCJ',   0,    2,  RHOORG),
-     & speciesstruct (  'AOTHRJ',   0,    2, RHOSOIL),
-     & speciesstruct ( 'APNCOMJ',   0,    2,  RHOORG),
-     & speciesstruct (   'APOCJ',   0,    2,  RHOORG),
-     & speciesstruct (    'ASIJ',   0,    2, RHOSOIL),
-     & speciesstruct (   'ASO4J',   0,    2,  RHOSO4),
-     & speciesstruct (   'ASQTJ',   0,    2,  RHOORG),
-     & speciesstruct (    'ATIJ',   0,    2, RHOSOIL),
-     & speciesstruct (  'ATOL1J',   0,    2,  RHOORG),
-     & speciesstruct (  'ATOL2J',   0,    2,  RHOORG),
-     & speciesstruct (  'ATOL3J',   0,    2,  RHOORG),
-     & speciesstruct (  'ATRP1J',   0,    2,  RHOORG),
-     & speciesstruct (  'ATRP2J',   0,    2,  RHOORG),
-     & speciesstruct (  'AXYL1J',   0,    2,  RHOORG),
-     & speciesstruct (  'AXYL2J',   0,    2,  RHOORG),
-     & speciesstruct (  'AXYL3J',   0,    2,  RHOORG),
-     & speciesstruct (    'ACLK',   0,    3, RHOSEAS),
-     & speciesstruct (   'ACORS',   0,    3, RHOANTH),
-     & speciesstruct (   'ANH4K',   0,    3,  RHONH4),
-     & speciesstruct (   'ANO3K',   0,    3,  RHONO3),
-     & speciesstruct ( 'ASEACAT',   0,    3, RHOSEAS),
-     & speciesstruct (   'ASO4K',   0,    3,  RHOSO4),
-     & speciesstruct (   'ASOIL',   0,    3, RHOSOIL) /)
+C                           name, ind, mode, density, version, found
+     & speciesstruct (    'ACLI',   0,    1, RHOSEAS, 0, .false.),
+     & speciesstruct (    'AECI',   0,    1, RHOANTH, 0, .false.),
+     & speciesstruct (    'ANAI',   0,    1, RHOSEAS, 0, .false.),
+     & speciesstruct (   'ANH4I',   0,    1,  RHONH4, 0, .false.),
+     & speciesstruct (   'ANO3I',   0,    1,  RHONO3, 0, .false.),
+     & speciesstruct (   'ASO4I',   0,    1,  RHOSO4, 0, .false.),
+     & speciesstruct (   'AALKJ',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (  'ABNZ1J',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (  'ABNZ2J',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (  'ABNZ3J',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (    'ACLJ',   0,    2, RHOSEAS, 0, .false.),
+     & speciesstruct (    'AECJ',   0,    2, RHOANTH, 0, .false.),
+     & speciesstruct (  'AISO1J',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (  'AISO2J',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (  'AISO3J',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (    'ANAJ',   0,    2, RHOSEAS, 0, .false.),
+     & speciesstruct (   'ANH4J',   0,    2,  RHONH4, 0, .false.),
+     & speciesstruct (   'ANO3J',   0,    2,  RHONO3, 0, .false.),
+     & speciesstruct (  'AOLGAJ',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (  'AOLGBJ',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (  'AORGCJ',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (   'ASO4J',   0,    2,  RHOSO4, 0, .false.),
+     & speciesstruct (   'ASQTJ',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (  'ATOL1J',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (  'ATOL2J',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (  'ATOL3J',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (  'ATRP1J',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (  'ATRP2J',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (  'AXYL1J',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (  'AXYL2J',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (  'AXYL3J',   0,    2,  RHOORG, 0, .false.),
+     & speciesstruct (    'ACLK',   0,    3, RHOSEAS, 0, .false.),
+     & speciesstruct (   'ACORS',   0,    3, RHOANTH, 0, .false.),
+     & speciesstruct (   'ANH4K',   0,    3,  RHONH4, 0, .false.),
+     & speciesstruct (   'ANO3K',   0,    3,  RHONO3, 0, .false.),
+     & speciesstruct (   'ASO4K',   0,    3,  RHOSO4, 0, .false.),
+     & speciesstruct (   'ASOIL',   0,    3, RHOSOIL, 0, .false.),
+     & speciesstruct (    'A25I',   0,    1, RHOANTH, 5, .false.),
+     & speciesstruct (    'A25J',   0,    2, RHOANTH, 5, .false.),
+     & speciesstruct (    'ANAK',   0,    3, RHOSEAS, 5, .false.),
+     & speciesstruct ( 'AORGPAI',   0,    1,  RHOORG, 5, .false.),
+     & speciesstruct ( 'AORGPAJ',   0,    2,  RHOORG, 5, .false.),
+     & speciesstruct (    'AALJ',   0,    2, RHOSOIL, 6, .false.),
+     & speciesstruct (    'ACAJ',   0,    2, RHOSOIL, 6, .false.),
+     & speciesstruct (    'AFEJ',   0,    2, RHOSOIL, 6, .false.),
+     & speciesstruct (     'AKJ',   0,    2, RHOSOIL, 6, .false.),
+     & speciesstruct (    'AMGJ',   0,    2, RHOSEAS, 6, .false.),
+     & speciesstruct (    'AMNJ',   0,    2, RHOSOIL, 6, .false.),
+     & speciesstruct (  'AOTHRI',   0,    1, RHOANTH, 6, .false.),
+     & speciesstruct (  'AOTHRJ',   0,    2, RHOSOIL, 6, .false.),
+     & speciesstruct ( 'APNCOMI',   0,    1,  RHOORG, 6, .false.),
+     & speciesstruct ( 'APNCOMJ',   0,    2,  RHOORG, 6, .false.),
+     & speciesstruct (   'APOCI',   0,    1,  RHOORG, 6, .false.),
+     & speciesstruct (   'APOCJ',   0,    2,  RHOORG, 6, .false.),
+     & speciesstruct ( 'ASEACAT',   0,    3, RHOSEAS, 6, .false.),
+     & speciesstruct (    'ASIJ',   0,    2, RHOSOIL, 6, .false.),
+     & speciesstruct (    'ATIJ',   0,    2, RHOSOIL, 6, .false.)
+     & /)
 
       INTEGER  NSTEPS      ! time, space, species dimensions/counters
       INTEGER  TSTEP 
@@ -187,9 +197,22 @@ C...get indices for aerosols
       do ivar= 1, nspecies
         vname            = bcspecies(ivar)%name
         bcspecies(ivar)%ind = INDEX1( VNAME, NVARS, VNAME3D )
+      enddo
+      notfound = -1
+      do ivar= 1, nspecies
         if ( bcspecies(ivar)%ind == 0 ) THEN
-          MSG = 'Could not find ' // VNAME // 'in ' // BC_FILE //' file'
+          vname            = bcspecies(ivar)%name
+          vversion         = bcspecies(ivar)%version
+          WRITE(MSG, '(A,I1,A)') 'Could not find ' // VNAME // ' AE', vversion, ' in ' // BC_FILE //' file'
           CALL M3WARN ( PNAME, 0, 0, MSG )
+          if (notfound .lt. 0) then
+              notfound  = vversion
+          else
+              if (notfound .ne. vversion) then
+                WRITE(MSG, '(A,I1,A, I1,A)') 'Aerosols from both ', notfound, ' and ', vversion, ' were not found; must have all of either'
+                CALL M3EXIT( PNAME, 0, 0, MSG )
+              endif
+          endif
         endif
       enddo
 
