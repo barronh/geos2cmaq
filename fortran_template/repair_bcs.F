@@ -59,7 +59,7 @@ C...........LOCAL VARIABLES (scalars) and their descriptions:
 
       CHARACTER(  16 ) :: PNAME = 'REPAIR_BCS'  ! program name
       CHARACTER(  16 ) :: VNAME                 ! variable name
-      CHARACTER( 120 ) :: MSG = ' '             ! status message string
+      CHARACTER( 220 ) :: MSG = ' '             ! status message string
 
       INTEGER  JDATE      ! current model date, coded YYYYDDD
       INTEGER  JTIME      ! current model time, coded HHMMSS
@@ -205,17 +205,17 @@ C...get indices for aerosols
           vversion         = bcspecies(ivar)%version
           WRITE(MSG, '(A,I1,A)') 'Could not find ' // VNAME // ' AE', vversion, ' in ' // BC_FILE //' file'
           CALL M3WARN ( PNAME, 0, 0, MSG )
-          if (notfound .lt. 0) then
+          if (notfound .le. 0) then
               notfound  = vversion
           else
               if (notfound .ne. vversion) then
-                WRITE(MSG, '(A,I1,A, I1,A)') 'Aerosols from both ', notfound, ' and ', vversion, ' were not found; must have all of either'
-                CALL M3EXIT( PNAME, 0, 0, MSG )
+                WRITE(MSG, '(A,I2,A, I2,A)') 'Aerosols from both ', notfound, ' and ', vversion, ' were not found'
+                CALL M3WARN( PNAME, 0, 0, MSG )
               endif
           endif
         endif
       enddo
-
+    
 C...get indices for the number concentration (add index if it does not exist)
 
       VNAME = 'NUMATKN'
@@ -263,7 +263,6 @@ C...get indices for the surface area concentration
       END IF
 
 C...allocate arrays
-
       NCELLS = 2 * NTHIK3D * ( NCOLS3D + NROWS3D + 2 * NTHIK3D )
       ALLOCATE( BC_VALUES(  NCELLS, NLAYS, NVARS ) )
 
