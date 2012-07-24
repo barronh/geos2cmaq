@@ -5,13 +5,15 @@ echo "Usage: START_DATE=CCYYMMDD STOP_DATE=CCYYMMDD [MECHINC=<PATH>] [PROFILE=<P
 echo 
 echo 
 echo " Required:"
-echo "  START_DATE     First day of boundary condition file \(+%Y%m%d format as defined by GNU coreutils\)"
-echo "  STOP_DATE      Last day of boundary condition file \(format same as START_DATe\)"
+echo "  START_DATE      First day of boundary condition file \(+%Y%m%d format as defined by GNU coreutils\)"
+echo "  STOP_DATE       Last day of boundary condition file \(format same as START_DATE\)"
 echo 
 echo " Optional:"
-echo "  MECHINC        Path to CMAQ chemical mechanism namelist files \(*.NML\). Defaults to ./"
-echo "  PROFILE        CMAQ formated chemical profile \(i.e., BCON input\). Defaults to ./profile.dat"
-echo "  OUTPATH        Full path \(directory and file\) for output file to be written to. Defaults to geos2cmaq.CCYYDD.ncf"
+echo "  MECHINC         Path to CMAQ chemical mechanism namelist files \(*.NML\). Defaults to ./"
+echo "  PROFILE         CMAQ formated chemical profile \(i.e., BCON input\). Defaults to ./profile.dat"
+echo "  OUTPATH         Full path \(directory and file\) for output file to be written to. Defaults to geos2cmaq.CCYYMMDD.ncf"
+echo "  GEO_INPUT_PATH  Directory path where GEOS-Chem files (BC.CCYYMMDD and BC.CSPEC.CCYYMMDD); defaults to PWD"
+echo "  MCIP_INPUT_PATH Directory path where CMAQ ready meteorology (METBDY_YYMMDD); defaults to PWD"
 echo
 exit
 fi
@@ -24,10 +26,16 @@ echo
 echo "  MECHINC=${MECHINC:=`pwd`/}"
 echo "  PROFILE=${PROFILE:=`pwd`/profile.dat}"
 echo "  OUTPATH=${OUTPATH:=`pwd`/geos2cmaq.${START_DATE}.ncf}"
+echo "  GEO_INPUT_PATH=${GEO_INPUT_PATH:=`pwd`/}"
+echo "  MCIP_INPUT_PATH=${MCIP_INPUT_PATH:=`pwd`/}"
+
 OUTDIR=`dirname $OUTPATH`
 
 # Set output directory to current working directory; Make directory if necessary
 mkdir -p ${OUTDIR}
+
+# Set output file environmental variable using a name recognized by the executable
+export GEO_INPUT_PATH=${GEO_INPUT_PATH}
 
 # Set output file environmental variable using a name recognized by the executable
 export BC_FNAME=${OUTPATH}
@@ -81,7 +89,7 @@ fi
     thismo=`date -d "$CURDATE" +%m`
     thisjdate=`date -d "${thisdate}" +"%Y%j"`  
     thisdate_nom=`date -d "${thisdate}" +"%y%m%d"`  
-    export MET_BDY_3D=METBDY3D_${thisdate_nom}
+    export MET_BDY_3D=${MCIP_INPUT_PATH}/METBDY3D_${thisdate_nom}
     if [[ ! -e $MET_BDY_3D ]]; then
         echo "MCIP file ${MET_BDY_3D} could not be found"
         echo "MCIP files should be retrieved from ASM prior to running"
@@ -89,19 +97,18 @@ fi
     fi
     export GT_FILE="BC."${thisdate}
     export GS_FILE="BC.CSPEC."${thisdate}
-    if [[ ! -e ${GT_FILE} ]]; then
-      echo "GEOS file ${GT_FILE} could not be found"
+    if [[ ! -e ${GEO_INPUT_PATH}/${GT_FILE} ]]; then
+      echo "GEOS file ${GT_FILE} could not be found in ${GEO_INPUT_PATH}"
       echo "GEOS BC files should be retrieved prior to running"
       exit
     fi
     export GT_FILE="${GT_FILE}"
-    if [[ ! -e ${GS_FILE} ]]; then
-      echo "GEOS file ${GS_FILE} could not be found"
+    if [[ ! -e ${GEO_INPUT_PATH}/${GS_FILE} ]]; then
+      echo "GEOS file ${GS_FILE} could not be found in ${GEO_INPUT_PATH}"
       echo "GEOS BC files should be retrieved prior to running"
       exit
     fi
     export GS_FILE="${GS_FILE}"
-    export GEO_INPUT_PATH="./"
     export REPAIR="F"
     if [[ $thisdate == ${repair_date} ]]; then
       export REPAIR="T"
