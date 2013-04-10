@@ -18,8 +18,8 @@ def mapping(mappath):
     import csv
     rows = csv.reader(file(mappath))
     rows.next() # ignore header
-    rows = [[c.strip() for c in row] for row in rows if row[0][0] != '#'] # Ignore comments
     rows = [row for row in rows if len(row) > 1] # Ignore unmapped
+    rows = [[c.strip() for c in row] for row in rows if row[0][0] != '#'] # Ignore comments and empty rows
     rows = [row for row in rows if row[1].upper() not in ('PROFILE', '')] # Ignore profiles
     return rows
 
@@ -27,6 +27,7 @@ def map(spc_data, mappath, mapo, profo):
     intext = mapping(mappath)
     # old mapping reader - [kv for kv in [kv.split(',') for kv in file(mappath).read().strip().split('\n')[1:] if kv[0] != '#'] if len(kv) > 1 and kv[-1].strip() != '']
     ks = set([k for k, v in intext])
+    print [spc_dat for spc_dat in spc_data.values()]
     mechspcs = set(reduce(list.__add__, [spc_dat.keys() for spc_dat in spc_data.values()]))
     mapped = list(ks)
     mapped.sort()
@@ -78,4 +79,4 @@ if __name__ == '__main__':
                   'testdata/smv2.log')
     po = geos('testdata/profile.dat')
     from mech import mechext as mech
-    map(mech('testdata'), 'mapping/saprc07t.csv', go, po)
+    map(mech('testdata'), 'mapping/saprc07tb.csv', go, po)
