@@ -112,6 +112,9 @@ c - TRACER file
 c     mhour = JTIME / 10000
       write(GEO_INPUT_FILE,'(a,''BC.'',i4.4,2i2.2)') TRIM(GEO_INPUT_PATH),
      &      myear, mnth, mday
+     !Write out filename to terminal for debugging - FHA 6-18-2013
+      write(*,'(''Reading GEOS input file: '',a,''BC.'',i4.4,2i2.2)') 
+     &      TRIM(GEO_INPUT_PATH), myear, mnth, mday
 
       ! open data file 
       !GEO_UNIT=GETEFILE( GT_FILE, .TRUE., .FALSE., 'BPCH_BCON' )
