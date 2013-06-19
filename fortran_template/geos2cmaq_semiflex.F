@@ -30,6 +30,7 @@ C..ARGUMENTS: None
 C..PARAMETERS:
       CHARACTER( 16 ), PARAMETER :: PNAME = 'BC_GEOCTM'
       CHARACTER( 16 ), PARAMETER :: MET_BDY_3D = 'MET_BDY_3D'
+      CHARACTER( 16 ), PARAMETER :: MET_CRO_3D = 'MET_CRO_3D'
 
 C..EXTERNAL FUNCTIONS:
 !      INTEGER  GETEFILE
@@ -44,7 +45,7 @@ C..SCRATCH LOCAL VARIABLES:
       CHARACTER(  4 )   ::  GEO_FL_SPNAM     ! Species name on GEO file
       CHARACTER(  5 )   ::  LIST_EDGE
       CHARACTER( 80 )   ::  MSG              ! Log message
-
+      CHARACTER(  6 )   ::  XCON             ! Type of output
       CHARACTER( 16 )   ::  BC_FNAME       = 'BC_FNAME'
       CHARACTER( 80 )   ::  TITLE
 
@@ -85,6 +86,8 @@ C..SCRATCH LOCAL VARIABLES:
       LOGICAL            :: RDONLY
       LOGICAL            :: FORMTD
       LOGICAL            :: LZERO
+      LOGICAL            :: ICON = .FALSE.
+      LOGICAL            :: BCON = .FALSE.
 
       REAL               :: DMIN
       REAL               :: LAT
@@ -133,19 +136,32 @@ C**********************************************************************
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Open the METBDY3D file & get grid description and date/time
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      CALL getenv( 'XCON', XCON )
 
-      IF( .NOT. OPEN3( MET_BDY_3D, FSREAD3, PNAME ) ) THEN
-         MSG = 'Could not open ' // MET_BDY_3D // ' file'
-         CALL M3ERR( PNAME, JDATE, JTIME, MSG, .TRUE. )
-      ENDIF
-
-      IF( .NOT. DESC3( MET_BDY_3D ) ) THEN
-         MSG = 'Could not read DESC of  ' // MET_BDY_3D  // ' file'
-         CALL M3ERR( PNAME, JDATE, JTIME, MSG, .TRUE. )
-      ENDIF
-
+      IF ( XCON == 'ICON' ) THEN
+         ICON = .TRUE.
+         write(*,'(A)') 'Running code for Initial Conditions'
+         IF ( .NOT. OPEN3( MET_CRO_3D, FSREAD3, PNAME ) ) THEN
+            MSG = 'Could not open ' // MET_CRO_3D // ' file'
+         ENDIF
+         IF ( .NOT. DESC3( MET_CRO_3D ) ) THEN
+            MSG = 'Could not read DESC of  ' // MET_CRO_3D  // ' file'
+            CALL M3ERR( PNAME, JDATE, JTIME, MSG, .TRUE. )
+         ENDIF
+      ELSE
+         BCON = .TRUE.
+         write(*,'(A)') 'Running code for Boundary Conditions'
+         IF ( .NOT. OPEN3( MET_BDY_3D, FSREAD3, PNAME ) ) THEN
+            MSG = 'Could not open ' // MET_BDY_3D // ' file'
+         ENDIF
+         IF ( .NOT. DESC3( MET_BDY_3D ) ) THEN
+            MSG = 'Could not read DESC of  ' // MET_BDY_3D  // ' file'
+            CALL M3ERR( PNAME, JDATE, JTIME, MSG, .TRUE. )
+         ENDIF
+       ENDIF
       jdate      = SDATE3D
       jtime       = STIME3D
+
 
       edate      = SDATE3D
       etime      = STIME3D
@@ -181,7 +197,7 @@ C...get starting date and time
        END IF
        
        IF ( IGNORE_YEAR .GT. 0) THEN
-           WRITE(LOGDEV, *)'METBDY3D date (', jdate, ') and start date (', START_DATE, ') have different years.'
+           WRITE(LOGDEV, *)'METXXX3D date (', jdate, ') and start date (', START_DATE, ') have different years.'
            WRITE(LOGDEV, *)' *** PROCEEDING with surrogate year *** '           
            JDATE_CHECK = MOD(JDATE, 1000) + START_DATE / 1000
            EDATE_CHECK = MOD(EDATE, 1000) + START_DATE / 1000
@@ -197,13 +213,13 @@ C...get starting date and time
        
       IF( (JDATE_CHECK .GT. STOP_DATE) .OR.
      &    (JDATE_CHECK .EQ. STOP_DATE .AND.  jtime .GT. STOP_TIME))THEN
-              WRITE(LOGDEV, *)'METBDY3D file ', JDATE_CHECK,' begins after STOP_DATE ',
+              WRITE(LOGDEV, *)'METXXX3D file ', JDATE_CHECK,' begins after STOP_DATE ',
      &        STOP_DATE,' and STOP_TIME ', STOP_TIME
               WRITE(LOGDEV, *)' *to ignore year set IGNORE_YEAR to any positive integer' 
               STOP
       ELSEIF( (EDATE_CHECK .LT. START_DATE) .OR.
      &        (EDATE_CHECK .EQ. START_DATE .AND. etime .LT. START_TIME)) THEN
-              WRITE(LOGDEV, *)'METBDY3D file ends prior to START_DATE ',
+              WRITE(LOGDEV, *)'METXXX3D file ends prior to START_DATE ',
      &          START_DATE,' and START_TIME ', START_TIME
               WRITE(LOGDEV, *)' *to ignore year set IGNORE_YEAR to any positive integer' 
               STOP
@@ -216,6 +232,7 @@ C...get starting date and time
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Get the Lat/lons of the CMAQ boundary cells
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      IF ( BCON ) THEN
       NBDY = 2 * NCOLS3D + 2 * NROWS3D + 4
       ALLOCATE( LON_CMAQ( NBDY ) )
       ALLOCATE( LAT_CMAQ( NBDY ) )
@@ -260,7 +277,25 @@ c..West Edge
      &                 P_ALP3D, P_BET3D, P_GAM3D, LAT_CMAQ( NCELL ),
      &                 LON_CMAQ( NCELL ) )
       ENDDO
+      ENDIF
+      IF ( ICON ) THEN
+c        FHA - 6-17-2013: We do not need to pad these numbers in CRO space
+         NBDY = ( NCOLS3D + 0 ) * ( NROWS3D + 0 )
+         ALLOCATE( LON_CMAQ( NBDY ) )
+         ALLOCATE( LAT_CMAQ( NBDY ) )
 
+c..South edge
+         NCELL = 0
+         DO C = 0, ( NCOLS3D - 1 )
+            DO R = 0, ( NROWS3D - 1 )
+                NCELL = NCELL + 1
+                CALL LAT_LON( C, R, GDTYP3D, XORIG3D, YORIG3D, 
+     &                       XCELL3D, YCELL3D, XCENT3D, YCENT3D,
+     &                       P_ALP3D, P_BET3D, P_GAM3D, LAT_CMAQ( NCELL ),
+     &                       LON_CMAQ( NCELL ) )
+            ENDDO
+         ENDDO
+      ENDIF
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Read in the GEO 3 hour data
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -382,8 +417,12 @@ C WTH assume BC step same as METBDY3D file
                  STOP
               END IF
       ELSE
-              FTYPE3D = BNDARY3                                         
-              NTHIK3D = 1                                               
+              IF ( BCON ) THEN
+                   FTYPE3D = BNDARY3
+                   NTHIK3D = 1 
+              ELSE 
+                   FTYPE3D = GRDDED3
+              END IF                                              
               SDATE3D = START_DATE
               STIME3D = START_TIME
               WRITE(LOGDEV, * ) ' OPENING BC_FILE for ', SDATE3D, STIME3D

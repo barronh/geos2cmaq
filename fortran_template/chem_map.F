@@ -8,6 +8,8 @@ C              concentrations
 C             
 C  Apr 2006 -- Sergey L. Napelenok
 C      Modified to describe GEOS-Chem files provided by Daven Henze
+C  Jun 2013 -- Farhan H. Akhtar
+C      Modified to produce initial conditions
 C
 C  KEY SUBROURINES/FUNCTIONS CALLED:     
 C
@@ -42,6 +44,8 @@ C..SCRATCH LOCAL VARIABLES:
       INTEGER  JDATE
       INTEGER  JTIME
       LOGICAL  LERROR
+      CHARACTER(  6 )   ::  XCON       ! Type of output
+      CHARACTER( 16 )   ::  INFILE     ! Name of met file
 
 C SLN - add PRES and TA in addition to DENS
       REAL, ALLOCATABLE, SAVE :: DENS( :, : ) 
@@ -72,29 +76,44 @@ C**********************************************************************
           ALLOCATE( MOLTOPPM( NBDY, NLAYS3D ), UGMTOPPM( NBDY, NLAYS3D ) )
 
       END IF
+C**********************************************************************
+C     Check if initial conditions are requested, set input file accordingly
+      CALL getenv( 'XCON', XCON )
+
+      IF ( XCON .EQ. 'ICON' ) THEN
+          INFILE = 'MET_CRO_3D'
+!         IF ( .NOT. OPEN3( INFILE, FSREAD3, PNAME ) ) THEN
+!            MSG = 'Could not open ' // INFILE // ' file'
+!         ENDIF
+      ELSE
+          INFILE = 'MET_BDY_3D'
+!         IF ( .NOT. OPEN3( INFILE, FSREAD3, PNAME ) ) THEN
+!            MSG = 'Could not open ' // INFILE // ' file'
+!         ENDIF
+      ENDIF
 
 C**********************************************************************
-C  read air density from MET_BDY_3D file (use for unit conversion)
-      IF(.NOT. INTERPB('MET_BDY_3D','DENS', PNAME, JDATE, JTIME,
+C  read air density from INPUT file (use for unit conversion)
+      IF(.NOT. INTERPB(INFILE,'DENS', PNAME, JDATE, JTIME,
      &                  N*L, DENS)) then
-        IF(.NOT. Read3('MET_BDY_3D','DENS', ALLAYS3, JDATE, JTIME, DENS)) then
+        IF(.NOT. Read3(INFILE,'DENS', ALLAYS3, JDATE, JTIME, DENS)) then
           Call m3err(pname, JDATE, JTIME,
-     &      'Reading DENS from MET_BDY_3D file', .TRUE.)
+     &      'Reading DENS from ' // INFILE // ' file', .TRUE.)
           endif
         Endif
 C SLN - read PRES and TA also
-      IF(.NOT. INTERPB('MET_BDY_3D','PRES', PNAME, JDATE, JTIME,
+      IF(.NOT. INTERPB(INFILE,'PRES', PNAME, JDATE, JTIME,
      &                  N*L, PRES)) then
-        IF(.NOT. Read3('MET_BDY_3D','PRES', ALLAYS3, JDATE, JTIME, PRES)) then
+        IF(.NOT. Read3(INFILE,'PRES', ALLAYS3, JDATE, JTIME, PRES)) then
           Call m3err(pname, JDATE, JTIME,
-     &      'Reading PRES from MET_BDY_3D file', .TRUE.)
+     &      'Reading PRES from ' // INFILE // ' file', .TRUE.)
           endif
         Endif
-      IF(.NOT. INTERPB('MET_BDY_3D','TA', PNAME, JDATE, JTIME,
+      IF(.NOT. INTERPB(INFILE,'TA', PNAME, JDATE, JTIME,
      &                  N*L, TA)) then
-        IF(.NOT. Read3('MET_BDY_3D','TA', ALLAYS3, JDATE, JTIME, TA)) then
+        IF(.NOT. Read3(INFILE,'TA', ALLAYS3, JDATE, JTIME, TA)) then
           Call m3err(pname, JDATE, JTIME,
-     &      'Reading TA from MET_BDY_3D file', .TRUE.)
+     &      'Reading TA from ' // INFILE // ' file', .TRUE.)
           endif
         Endif
 

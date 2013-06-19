@@ -11,7 +11,8 @@ echo
 echo " Optional:"
 echo "  MECHINC         Path to CMAQ chemical mechanism namelist files \(*.NML\). Defaults to ./"
 echo "  PROFILE         CMAQ formated chemical profile \(i.e., BCON input\). Defaults to ./profile.dat"
-echo "  OUTPATH         Full path \(directory and file\) for output file to be written to. Defaults to geos2cmaq.CCYYMMDD.ncf"
+echo "  XCON            Create boundary 'BCON' or initial 'ICON' conditions. Defaults to 'BCON'" 
+echo "  OUTPATH         Full path \(directory and file\) for output file to be written to. Defaults to BCON.geos2cmaq.CCYYMMDD.ncf"
 echo "  GEO_INPUT_PATH  Directory path where GEOS-Chem files (BC.CCYYMMDD and BC.CSPEC.CCYYMMDD); defaults to PWD"
 echo "  MCIP_INPUT_PATH Directory path where CMAQ ready meteorology (METBDY_YYMMDD); defaults to PWD"
 echo
@@ -25,7 +26,8 @@ echo "  STOP_DATE=${STOP_DATE?You must provide STOP_DATE in the format CCYYMMDD.
 echo
 echo "  MECHINC=${MECHINC:=`pwd`/}"
 echo "  PROFILE=${PROFILE:=`pwd`/profile.dat}"
-echo "  OUTPATH=${OUTPATH:=`pwd`/geos2cmaq.${START_DATE}.ncf}"
+echo "  XCON=${XCON:='BCON'}"
+echo "  OUTPATH=${OUTPATH:=`pwd`/${XCON}.geos2cmaq.${START_DATE}.ncf}"
 echo "  GEO_INPUT_PATH=${GEO_INPUT_PATH:=`pwd`/}"
 echo "  MCIP_INPUT_PATH=${MCIP_INPUT_PATH:=`pwd`/}"
 
@@ -68,6 +70,7 @@ if [[ ! -e gc_matrix.nml || ! -e ae_matrix.nml || ! -e nr_matrix.nml || ! -e tr_
    exit
 fi
 
+export XCON=${XCON}
 
 CURDATE=${START_DATE}
 
@@ -83,18 +86,27 @@ fi
   export STOP_TIME="010000"
   export repair_date=`date -d "$EDATE -1 day" +"%Y%m%d"`
 
-  while [[ $CURDATE != $EDATE ]]
-  do
+  until [[ $CURDATE > $EDATE ]]; do
     thisdate=$CURDATE
     thismo=`date -d "$CURDATE" +%m`
     thisjdate=`date -d "${thisdate}" +"%Y%j"`  
     thisdate_nom=`date -d "${thisdate}" +"%y%m%d"`  
     export MET_BDY_3D=${MCIP_INPUT_PATH}/METBDY3D_${thisdate_nom}
     if [[ ! -e $MET_BDY_3D ]]; then
-        echo "MCIP file ${MET_BDY_3D} could not be found"
-        echo "MCIP files should be retrieved from ASM prior to running"
-        exit
+       echo "MCIP files ${MET_BDY_3D} could not be found"
+       echo "MCIP files should be retrieved from ASM prior to running"
+       exit
     fi
+    if [[ $XCON == 'ICON' ]]; then
+       export MET_CRO_3D=${MCIP_INPUT_PATH}/METCRO3D_${thisdate_nom}
+       if [[ ! -e $MET_CRO_3D ]]; then
+          echo "MCIP files ${MET_CRO_3D} could not be found"
+          echo "MCIP files should be retrieved from ASM prior to running"
+          exit
+       fi
+    fi
+
+
     export GT_FILE="BC."${thisdate}
     export GS_FILE="BC.CSPEC."${thisdate}
     if [[ ! -e ${GEO_INPUT_PATH}/${GT_FILE} ]]; then
