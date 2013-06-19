@@ -417,11 +417,11 @@ C WTH assume BC step same as METBDY3D file
                  STOP
               END IF
       ELSE
-              IF ( BCON ) THEN
-                   FTYPE3D = BNDARY3
-                   NTHIK3D = 1 
+              IF ( ICON ) THEN
+                 FTYPE3D = GRDDED3
               ELSE 
-                   FTYPE3D = GRDDED3
+                 FTYPE3D = BNDARY3
+                 NTHIK3D = 1 
               END IF                                              
               SDATE3D = START_DATE
               STIME3D = START_TIME
