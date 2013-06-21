@@ -286,8 +286,9 @@ c        FHA - 6-17-2013: We do not need to pad these numbers in CRO space
 
 c..South edge
          NCELL = 0
-         DO C = 0, ( NCOLS3D - 1 )
-            DO R = 0, ( NROWS3D - 1 )
+c        FHA - 6-17-2013: Not sure if CRO space is zero indexed?
+         DO R = 0, ( NROWS3D - 1 )
+            DO C = 0, ( NCOLS3D - 1 )
                 NCELL = NCELL + 1
                 CALL LAT_LON( C, R, GDTYP3D, XORIG3D, YORIG3D, 
      &                       XCELL3D, YCELL3D, XCENT3D, YCENT3D,
