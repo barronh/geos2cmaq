@@ -62,6 +62,7 @@ C...........LOCAL VARIABLES (scalars) and their descriptions:
       CHARACTER(  16 ) :: PNAME = 'REPAIR_BCS'  ! program name
       CHARACTER(  16 ) :: VNAME                 ! variable name
       CHARACTER( 220 ) :: MSG = ' '             ! status message string
+      CHARACTER(  6 )  :: XCON                  ! Type of output
 
       INTEGER  JDATE      ! current model date, coded YYYYDDD
       INTEGER  JTIME      ! current model time, coded HHMMSS
