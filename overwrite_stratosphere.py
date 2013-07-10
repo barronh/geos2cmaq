@@ -107,17 +107,32 @@ def copyup(date_start, date_end, bctemp, mettemp, minz = None, maxz = None):
             writecount = 0
             for perim_idx, layv in enumerate(timeslice):
                 count += 1
-                # Check that ozone concentrations are above 300 ppb
-                destination_vector = o3[time_idx, layv+1:, perim_idx].copy()
-                destination_mask = destination_vector > mino3
-                if not (destination_mask == False).all():
-                    # Overwrite only those values where ozone is greater than 300ppb
-                    writecount += 1
-                    for di, dv in enumerate(destination_mask):
-                        if dv: o3[time_idx, layv+1+di, perim_idx] = o3[time_idx, layv, perim_idx]
-                    assert((o3[time_idx, layv+1:, perim_idx] != destination_vector).any())
+                if isinstance(layv,np.ndarray):
+                    # if data is multidimensional, iterate over add'l dims
+                    for perim_idx_2, layv_2 in enumerate(layv):
+                        # Check that ozone concentrations are above 300 ppb
+                        destination_vector = o3[time_idx, layv_2+1:, perim_idx, perim_idx_2].copy()
+                        destination_mask = destination_vector > mino3
+                        if not (destination_mask == False).all():
+                            # Overwrite only those values where ozone is greater than 300ppb
+                            writecount += 1
+                            for di, dv in enumerate(destination_mask):
+                                if dv: o3[time_idx, layv_2+1+di, perim_idx, perim_idx_2] = o3[time_idx, layv_2, perim_idx, perim_idx_2]
+                            assert((o3[time_idx, layv_2+1:, perim_idx, perim_idx_2] != destination_vector).any())
+                        else:
+                            skipcount += 1
                 else:
-                    skipcount += 1
+                    # Check that ozone concentrations are above 300 ppb
+                    destination_vector = o3[time_idx, layv+1:, perim_idx].copy()
+                    destination_mask = destination_vector > mino3
+                    if not (destination_mask == False).all():
+                        # Overwrite only those values where ozone is greater than 300ppb
+                        writecount += 1
+                        for di, dv in enumerate(destination_mask):
+                            if dv: o3[time_idx, layv+1+di, perim_idx] = o3[time_idx, layv, perim_idx]
+                        assert((o3[time_idx, layv+1:, perim_idx] != destination_vector).any())
+                    else:
+                        skipcount += 1
             bcf.sync()
             tflag = '%dT%06d' % tuple(bcf.variables['TFLAG'][time_idx, 0].tolist())
             print '%s, N, Skip Col, Write Col, Skip/Count: %.f %6d %6d %.2f' % (tflag, count, skipcount, writecount, skipcount / count)
