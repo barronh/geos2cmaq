@@ -1,2 +1,3 @@
 *.pyc
-
+*.o
+mechmap_archive/*
