@@ -16,7 +16,11 @@ def mechext(inpath):
 
 def mechnml(inpath):
     spc_paths = glob(os.path.join(inpath, '*.nml'))
-    spc_files = dict([(os.path.basename(p)[:2], p) for p in spc_paths])
+    try:
+        spc_files = dict([(os.path.basename(p)[:2], p).upper() for p in spc_paths])
+    except SyntaxError as e:
+        raise SyntaxError("You must have only one AE*.nml, one GC*.nml and one NR*.nml")
+    
     spc_data = {}
     for k in spc_files.keys():
         path = spc_files[k]
