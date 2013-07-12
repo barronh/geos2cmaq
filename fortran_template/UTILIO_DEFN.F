@@ -61,6 +61,8 @@ C....................................................................
          USE M3UTILIO, INTERPB => INTERP3
 !        USE M3UTILIO
 #endif
+! BHH: You may need to comment the JUNIT lines out
+!      to make this work.
          EXTERNAL JUNIT
          INTEGER JUNIT
 
