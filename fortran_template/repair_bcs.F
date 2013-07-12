@@ -22,6 +22,8 @@ C  Apr 2012 -- HOT Pye (with constributions from SJR)
 C      Updated for full AERO6 consistency
 C      Added coarse mode surface area
 C      Organized and checked species (included some species that are currently zero from GEOS-Chem)
+C  Jun 2013 -- F. Akhtar
+C      Added ICON test in NCELLS calculation
 C
 C-----------------------------------------------------------------------
       SUBROUTINE REPAIR( BC_FILE )
@@ -60,6 +62,7 @@ C...........LOCAL VARIABLES (scalars) and their descriptions:
       CHARACTER(  16 ) :: PNAME = 'REPAIR_BCS'  ! program name
       CHARACTER(  16 ) :: VNAME                 ! variable name
       CHARACTER( 220 ) :: MSG = ' '             ! status message string
+      CHARACTER(  6 )  :: XCON                  ! Type of output
 
       INTEGER  JDATE      ! current model date, coded YYYYDDD
       INTEGER  JTIME      ! current model time, coded HHMMSS
@@ -263,7 +266,15 @@ C...get indices for the surface area concentration
       END IF
 
 C...allocate arrays
-      NCELLS = 2 * NTHIK3D * ( NCOLS3D + NROWS3D + 2 * NTHIK3D )
+C...define full array in case of icon files
+      CALL getenv( 'XCON', XCON )
+
+      IF ( XCON == 'ICON' ) THEN
+         NCELLS = NCOLS3D * NROWS3D
+      ELSE
+         NCELLS = 2 * NTHIK3D * ( NCOLS3D + NROWS3D + 2 * NTHIK3D )
+      END IF
+
       ALLOCATE( BC_VALUES(  NCELLS, NLAYS, NVARS ) )
 
 C...begin loop through all timesteps on input file

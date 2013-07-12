@@ -2,6 +2,7 @@ import optparse
 import os
 from glob import glob
 import shutil
+from sys import exit
 
 usage = "usage: %prog [options] outpath"
 parser = optparse.OptionParser(usage=usage)
@@ -68,7 +69,11 @@ mech_info = mechinc(mech(mechpath), convpath)
 cspec_info = go.cspec_info()
 tracer_info = go.tracer_info()
 profile_info = po.profile_info()
-mappings, nprof = map(mech(mechpath), convpath, go, po)
+try: 
+    mappings, nprof = map(mech(mechpath), convpath, go, po)
+except TypeError, err:
+    print 'No CMAQ namelist found. Check namelist directory.'
+    exit()
 mech_info = ("      INTEGER :: NSPC_DFLT = %d\n" % nprof) + mech_info
 out = os.path.join(out, 'MAPPING')
 file('%s.MECH' % out, 'w').write(mech_info)

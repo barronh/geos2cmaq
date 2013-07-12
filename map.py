@@ -18,8 +18,8 @@ def mapping(mappath):
     import csv
     rows = csv.reader(file(mappath))
     rows.next() # ignore header
-    rows = [[c.strip() for c in row] for row in rows if row[0][0] != '#'] # Ignore comments
     rows = [row for row in rows if len(row) > 1] # Ignore unmapped
+    rows = [[c.strip() for c in row] for row in rows if row[0][0] != '#'] # Ignore comments and empty rows
     rows = [row for row in rows if row[1].upper() not in ('PROFILE', '')] # Ignore profiles
     return rows
 
@@ -78,4 +78,4 @@ if __name__ == '__main__':
                   'testdata/smv2.log')
     po = geos('testdata/profile.dat')
     from mech import mechext as mech
-    map(mech('testdata'), 'mapping/saprc07t.csv', go, po)
+    map(mech('testdata'), 'mapping/saprc07tb.csv', go, po)
