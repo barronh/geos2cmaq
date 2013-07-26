@@ -25,9 +25,7 @@ The tool requires libraries for python (with numpy and matplotlib), netcdf and i
 Users can download the code directory at the following location using wget:
 
 1.  Clicking on https://github.com/barronh/geos2cmaq/archive/master.zip
-2.  Using git clone
-
-    git clone https://github.com/barronh/geos2cmaq
+2.  Using git clone: `git clone https://github.com/barronh/geos2cmaq`
 
 This package includes the FORTRAN-based regridder and python pre-processor.
 Verify installation (recommended but optional)
