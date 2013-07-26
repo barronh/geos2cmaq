@@ -161,12 +161,12 @@ Description:
     Inputs are METBDY3D files from MCIP and a CMAQ IOAPI boundary file
 
 Parameters:
- - YYYYMMDD is the 4 digit year, 2 digit month and 3 digit day of the start date
+ - YYYYMMDD is the 4 digit year, 2 digit month and 2 digit day of the start date
  - NDAYS is the number of days to operate on (e.g., 1 = just the start date)
  - BCTEMP is a template string following printf that can take a date string (e.g. YYYYMMDD) to get a day value
  - METTEMP same as BCTEMP for metbdy, but uses two digit year (e.g., YYMMDD)
- - minz minimum altitude for the tropopause (based on layer top)
- - maxz minimum altitude for the tropopause (based on layer top)
+ - minz minimum altitude for the tropopause (based on layer top) (optional)
+ - maxz minimum altitude for the tropopause (based on layer top) (optional)
 
 e.g.,
 
