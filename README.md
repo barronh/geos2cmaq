@@ -23,7 +23,11 @@ Required input files
 The tool requires libraries for python (with numpy and matplotlib), netcdf and ioapi (with m3utilio) to be installed on the host system.
 
 Users can download the code directory at the following location using wget:
-wget https://dl.dropbox.com/u/52906249/geos2cmaq_test/geos2cmaq.tar.gz
+
+1.  Clicking on https://github.com/barronh/geos2cmaq/archive/master.zip
+2.  Using git clone
+
+    git clone https://github.com/barronh/geos2cmaq
 
 This package includes the FORTRAN-based regridder and python pre-processor.
 Verify installation (recommended but optional)
