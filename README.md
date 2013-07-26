@@ -72,8 +72,8 @@ in the code directory. Users can also specify the full path to another mapping f
 In the test run directory, the run.sh script can be used to create boundary condition files. The script has
 several required and optional variables, as outlined below:
 
-    Usage: START_DATE=CCYYMMDD STOP_DATE=CCYYMMDD [MECHINC=<PATH>] [PROFILE=<PATH>]
-    [OUTPATH=<path>] run.sh
+    Usage: START_DATE=CCYYMMDD STOP_DATE=CCYYMMDD [MECHINC=<PATH>] [PROFILE=<PATH>] [XCON='XCON']
+    [OUTPATH=<path>] [GEO_INPUT_PATH=<path>] [MCIP_INPUT_PATH=<path>] run.sh
 (see Makefile.test from testrun for an example)
 
     Required Variables:
@@ -82,7 +82,10 @@ several required and optional variables, as outlined below:
     Optional Variables:
         MECHINC Path to CMAQ chemical mechanism namelist files (*.NML). Defaults to ./
         PROFILE CMAQ formated chemical profile (i.e., BCON input). Defaults to ./profile.dat
-        OUTPATH Full path (directory and file) for output file to be written to. Defaults to ./geos2cmaq.CCYYMMDD.ncf"
+		XCON Set to BCON for boundary conditions and ICON for initial conditions. Defaults to BCON
+        OUTPATH Full path (directory and file) for output file to be written to. Defaults to ./geos2cmaq.CCYYMMDD.ncf
+		GEO_INPUT_PATH  Directory path where GEOS-Chem files (BC.CCYYMMDD and BC.CSPEC.CCYYMMDD); defaults to PWD
+        MCIP_INPUT_PATH Directory path where CMAQ ready meteorology (METBDY_YYMMDD or METCRO3D_YYMMDD); defaults to PWD
 
 Users can create a wrapper script to iterate across multiple dates if necessary.
 
