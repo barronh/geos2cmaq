@@ -26,7 +26,7 @@ echo "  STOP_DATE=${STOP_DATE?You must provide STOP_DATE in the format CCYYMMDD.
 echo
 echo "  MECHINC=${MECHINC:=`pwd`/}"
 echo "  PROFILE=${PROFILE:=`pwd`/profile.dat}"
-echo "  XCON=${XCON:='BCON'}"
+echo "  XCON=${XCON:=BCON}"
 echo "  OUTPATH=${OUTPATH:=`pwd`/${XCON}.geos2cmaq.${START_DATE}.ncf}"
 echo "  GEO_INPUT_PATH=${GEO_INPUT_PATH:=`pwd`/}"
 echo "  MCIP_INPUT_PATH=${MCIP_INPUT_PATH:=`pwd`/}"
