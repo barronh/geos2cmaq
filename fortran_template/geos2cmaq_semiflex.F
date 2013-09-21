@@ -86,6 +86,7 @@ C..SCRATCH LOCAL VARIABLES:
       LOGICAL            :: RDONLY
       LOGICAL            :: FORMTD
       LOGICAL            :: LZERO
+      LOGICAL            :: REPAIR_NOW = .TRUE.
       LOGICAL            :: ICON = .FALSE.
       LOGICAL            :: BCON = .FALSE.
 
@@ -183,6 +184,7 @@ C...get starting date and time
        START_DATE = ENVINT('START_DATE','Start Date for period', START_DATE, STATUS)
        START_TIME  = ENVINT('START_TIME','Start Time for period', START_TIME, STATUS)
        IGNORE_YEAR  = ENVINT('IGNORE_YEAR','Positive to indicate surrogate year', IGNORE_YEAR, STATUS)
+       REPAIR_NOW = ENVYN( 'REPAIR', 'If true, run repair algorithm', REPAIR_NOW, STATUS)
        IF( START_DATE .LE. 0 )THEN
            MSG = 'BAD or UNDEFINED value for environment variable START_DATE'
            CALL M3EXIT(PNAME, JDATE, JTIME, MSG, XSTAT1 )
@@ -586,7 +588,7 @@ c    the boundaries will be the same
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 
-      Call REPAIR(BC_FNAME)
+      IF (REPAIR_NOW) Call REPAIR(BC_FNAME)
 
 
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
