@@ -11,7 +11,7 @@ mechanisms.
 
 Required input files
 
-1.  GEOS-Chem output: Both GEOS-Chem “tracers” and “chemical species” are used in the mapping lists provided with this tool. The US EPA has archived several GEOS-Chem runs from 2001-2010. These files can be provided to users as necessary. Please contact Farhan Akhtar or Kristen Foley for more details on how to receive these files. (NOTE: GEOS-Chem by default does not write out chemical species concentrations. Please contact Farhan Akhtar for the code updates to output the chemical species from GEOS-Chem)
+1.  GEOS-Chem output: Both GEOS-Chem “tracers” and “chemical species” are used in the mapping lists provided with this tool. The US EPA has archived several GEOS-Chem runs from 2001-2010. These files can be provided to users as necessary. Please contact Farhan Akhtar or Barron Henderson for more details on how to receive these files. (NOTE: GEOS-Chem by default does not write out chemical species concentrations. Please contact [Barron Henderson](mailto:barronh@ufl.edu) for the code updates to output the chemical species from GEOS-Chem)
 1.  CMAQ/MCIP METBDY3D file: The tool dynamically regrids the GEOS-Chem output to the desired subdomain by using the grid description provided by these files.
 1.  CMAQ namelist files: Users must provide the *.nml files for the CMAQ application.
 1.  Chemical Mechanism Mapping files: These files provide the mapping of GEOS-Chem tracers and species to a desired chemical mechanism’s species set. Several default cases are provided with the tool and can be specified at compile time. See re-compiling the code for more details on the provided chemical mappings and how to specify alternative mappings.
