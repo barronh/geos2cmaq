@@ -1,4 +1,4 @@
-This software was used in Henderson et al.[1]. In that manuscript, the GEOS-Chem outputs were created using v8-03-02 and v9-01-01 code. For subsequent work, we use the ND49 option instead of modifying the code.
+This software was used in Henderson et al.[1]. In that manuscript, the GEOS-Chem outputs were created using v8-03-02 and v9-01-01 code. For subsequent work, we use the ND49 option instead of modifying the code. These files are provided for posterity.
 
 v8-03-02 was at the following commit with edits described in MANUSCRIPT_CODE.diff
 commit b27d73dc1ea51de3f9571b337408a93daf113c04
