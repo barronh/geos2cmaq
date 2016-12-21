@@ -1,6 +1,7 @@
 There are two sections of code. One for v8-03-02 and one for v9-01-01. It would be better to simply use the ND49 outputs for future efforts.
 
 # v8-03-02 Differences
+
 diff -r code_2-15-2012.v8-03-02/GeosCore/main.f code_2-15-2012.v8-03-02.org/GeosCore/main.f
 182,184d181
 <       !for better CSPEC tracerinfos (fha, 10/28/11)
@@ -310,6 +311,7 @@ diff -r code_2-15-2012.v8-03-02/Headers/define.h code_2-15-2012.v8-03-02.org/Hea
 
 
 # v9-01-01 Differences
+
 diff -r Code_v9_01_01_BC_CP/GeosCore/input_mod.f Code_v9_01_01/GeosCore/input_mod.f
 4658a4659,4660
 >       ! fha 3-8-11: for better organized BC directories index by DATE
