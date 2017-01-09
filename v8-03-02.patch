@@ -1,0 +1,532 @@
+diff --git a/GeosCore/main.f b/GeosCore/main.f
+index a6362f6..9e06321 100644
+--- a/GeosCore/main.f
++++ b/GeosCore/main.f
+@@ -179,6 +179,9 @@
+       ! For GTMM for mercury simulations. (ccc, 6/7/10)
+       USE WETSCAV_MOD,       ONLY : GET_WETDEP_IDWETD  
+       USE MERCURY_MOD,       ONLY : PARTITIONHG
++      !for better CSPEC tracerinfos (fha, 10/28/11)
++      USE GAMAP_MOD,         ONLY : DO_GAMAP
++
+ 
+       ! Force all variables to be declared explicitly
+       IMPLICIT NONE
+@@ -201,7 +204,7 @@
+       REAL*8             :: TAU,         TAUb         
+       REAL*8 :: HGPFRAC(IIPAR,JJPAR,LLPAR)
+ 
+-      CHARACTER(LEN=255) :: ZTYPE
++      CHARACTER(LEN=255) :: ZTYPE, DIAGINFO, TRACERINFO
+ 
+       !=================================================================
+       ! GEOS-CHEM starts here!                                            
+@@ -972,6 +975,12 @@
+ 
+          ENDIF 
+ 
++         ! fha - 10-28-11: Redo this after the chem initialization for CSPEC
++         ! Create "diaginfo.dat" and "tracerinfo.dat" files for GAMAP
++         DIAGINFO = 'diaginfo.dat'
++         TRACERINFO = 'tracerinfo.dat'
++         CALL DO_GAMAP( DIAGINFO, TRACERINFO )
++
+  
+          !==============================================================
+          ! ***** W E T   D E P O S I T I O N  (rainout + washout) *****
+diff --git a/GeosCore/tpcore_bc_mod.f b/GeosCore/tpcore_bc_mod.f
+index 41bfdb2..808084b 100644
+--- a/GeosCore/tpcore_bc_mod.f
++++ b/GeosCore/tpcore_bc_mod.f
+@@ -32,6 +32,8 @@
+ !  (19b) BC_NA   (REAL*4  )    : Array containing NA tracers on coarse grid
+ !  (19c) BC_EU   (REAL*4  )    : Array containing EU tracers on coarse grid
+ !  (19d) BC_CH   (REAL*4  )    : Array containing CH tracers on coarse grid
++!  (19e) BC_CP   (REAL*4  )    : Array containing NA species on coarse grid
++!  (19e) BC_CU_CP(REAL*4  )    : Array containing CU species on coarse grid
+ !  (20) MAP1x1   (INTEGER )    : Mapping array from 1x1 -> 4x5 grid
+ !
+ !  Module Routines:
+@@ -133,7 +135,7 @@
+ !  (1 ) Bug fix for LINUX w/ TIMESTAMP_STRING (bmy, 9/29/03)
+ !  (2 ) Now references "tracer_mod.f", "directory_mod.f", and
+ !        "logical_mod.f" (bmy, 7/20/04)
+-!  (3 ) Now get HALFPOLAR for GEOS or GCAP grids (bmy, 6/28/05)
++!  (3 ) Now get HALFPOLAR for GEOS or GCAP grids (bmy, 6/28/05)NC
+ !  (4 ) Now make sure all USE statements are USE, ONLY (bmy, 10/3/05)
+ !  (5 ) Rename arguments in GET_4x5_BC to avoid name conflict (bmy, 10/24/05)
+ !  (6 ) Now use EXPAND_DATE instead of obsolete DATE_STRING (bmy, 3/15/06)
+@@ -186,7 +188,9 @@
+       REAL*4,  ALLOCATABLE :: BC_NA(:,:,:,:)
+       REAL*4,  ALLOCATABLE :: BC_EU(:,:,:,:)
+       REAL*4,  ALLOCATABLE :: BC_CH(:,:,:,:)
+-
++      !fha 3-3-11 
++      REAL*4,  ALLOCATABLE :: BC_CP(:,:,:,:)
++      REAL*4,  ALLOCATABLE :: BC_CU_CP(:,:,:,:)
+       !=================================================================
+       ! MODULE ROUTINES -- follow below the "CONTAINS" statement
+       !=================================================================
+@@ -239,6 +243,7 @@
+ !  (2 ) Now make sure all USE statements are USE, ONLY (bmy, 10/3/05)
+ !  (3 ) DATE_STRING is now obsolete; use EXPAND_DATE instead (bmy, 3/15/06)
+ !  (4 ) Can now read files from different directories (amv, bmy, 12/18/09)
++!  (5 ) Now creates CSPEC files too 101, 102 (fha, 3-4-11)
+ !******************************************************************************
+ !
+       ! References to F90 modules
+@@ -246,8 +251,10 @@
+       USE BPCH2_MOD,     ONLY : OPEN_BPCH2_FOR_READ
+       USE DIRECTORY_MOD, ONLY : TPBC_DIR,    TPBC_DIR_NA
+       USE DIRECTORY_MOD, ONLY : TPBC_DIR_CH, TPBC_DIR_EU
+-      USE FILE_MOD,      ONLY : IU_BC, IU_BC_NA, IU_BC_EU, IU_BC_CH
++      USE FILE_MOD,      ONLY : IU_BC, IU_BC_NA, IU_BC_EU, IU_BC_CH 
+       USE TIME_MOD,      ONLY : EXPAND_DATE, GET_NYMD, ITS_A_NEW_DAY
++      !fha 3-3-11
++      USE FILE_MOD,      ONLY : IU_BC_CP, IU_BC_CU_CP
+ 
+       IMPLICIT NONE
+ 
+@@ -284,6 +291,10 @@
+             FILENAME = TRIM( TPBC_DIR_EU ) // 'BC.YYYYMMDD'
+          ELSEIF ( WINDOW .eq. 4 ) THEN
+             FILENAME = TRIM( TPBC_DIR_CH ) // 'BC.YYYYMMDD'
++         ELSEIF ( WINDOW .eq. 101 ) THEN
++            FILENAME = TRIM( TPBC_DIR ) // 'BC.CSPEC.YYYYMMDD'
++         ELSEIF ( WINDOW .eq. 102 ) THEN
++            FILENAME = TRIM( TPBC_DIR_NA ) // 'BC.CSPEC.YYYYMMDD'
+          ENDIF
+          
+          ! Replace YYYYMMDD with the actual date
+@@ -301,10 +312,18 @@
+             IF ( PRESENT( FOR_WRITE ) )
+      &        CALL OPEN_BPCH2_FOR_WRITE( IU_BC, 
+      &               FILENAME )
++	     ELSEIF ( WINDOW .eq. 101 ) THEN
++            IF ( PRESENT( FOR_WRITE ) )
++     &        CALL OPEN_BPCH2_FOR_WRITE( IU_BC_CU_CP, 
++     &               FILENAME )
+          ELSEIF ( WINDOW .eq. 2 ) THEN
+             IF ( PRESENT( FOR_WRITE ) )
+      &        CALL OPEN_BPCH2_FOR_WRITE( IU_BC_NA, 
+      &               FILENAME )
++         ELSEIF ( WINDOW .eq. 102 ) THEN
++            IF ( PRESENT( FOR_WRITE ) )
++     &        CALL OPEN_BPCH2_FOR_WRITE( IU_BC_CP,
++     &               FILENAME )
+          ELSEIF ( WINDOW .eq. 3 ) THEN
+             IF ( PRESENT( FOR_WRITE ) )
+      &        CALL OPEN_BPCH2_FOR_WRITE( IU_BC_EU, 
+@@ -337,6 +356,8 @@
+ !        value for GEOS or GCAP grids (bmy, 6/28/05)
+ !  (3 ) Now make sure all USE statements are USE, ONLY (bmy, 10/3/05)
+ !  (4 ) Can now save files to different directories (amv, bmy, 12/18/09)
++!  (5 ) Hardcoded act+inact species count for CSPEC output 116 (fha, 11/9/11)
++!  (6 ) Changed CSPEC species count to NTSPEC(1) (fha, 5/17/12)
+ !******************************************************************************
+ !
+       ! References to F90 modules
+@@ -347,9 +368,14 @@
+       USE TRACER_MOD, ONLY : N_TRACERS, STT
+       USE LOGICAL_MOD, ONLY : LWINDO_CU, LWINDO_NA
+       USE LOGICAL_MOD, ONLY : LWINDO_CH, LWINDO_EU
++      ! fha 3-3-11: write out CSPEC BC conditions
++      USE COMODE_MOD,  ONLY : CSPEC_FULL
++      USE FILE_MOD,    ONLY : IU_BC_CP, IU_BC_CU_CP
++!      USE COMODE_LOOP_MOD, ONLY : IGAS, NTSPEC
+ 
+ #     include "CMN_SIZE" ! Size parameters
+-
++#     include "comode.h"   ! NTSPEC (from havala: readchem:NACTIVE, NGAS, NTSPEC)
++      
+       ! Local variables
+       LOGICAL, SAVE      :: FIRST     = .TRUE.
+       INTEGER            :: HALFPOLAR
+@@ -363,6 +389,10 @@
+       CHARACTER(LEN=40)  :: CATEGORY  = 'IJ-AVG-$'
+       CHARACTER(LEN=40)  :: UNIT      = 'v/v'
+       CHARACTER(LEN=40)  :: RESERVED  = ''
++      ! fha 3-3-11
++      CHARACTER(LEN=40)  :: CATEGOR_S = 'IJ-CHK-$'
++      CHARACTER(LEN=40)  :: UNIT_S    = 'molec/cm3/box'
++
+ 
+       !=================================================================
+       ! SAVE_GLOBAL_TPCORE_BC begins here!
+@@ -389,7 +419,7 @@
+             CALL OPEN_BC_FILE( FOR_WRITE=.TRUE., WINDOW=IC)
+ 
+             ! Loop over each tracer
+-            DO N = 1, N_TRACERS
++            DO N = 1, N_TRACERS 
+ 
+                ! Save concentrations in WINDOW REGION to disk
+                DO L = 1, LLPAR
+@@ -405,11 +435,40 @@
+      &               J1_BC,     1,   BC(1:IM_BC, 1:JM_BC, 1:LLPAR, N) )
+ 
+                ENDDO
+-
+-               ! Echo info
++	               ! Echo info
+                STAMP = TIMESTAMP_STRING()
+                WRITE( 6, 110 ) STAMP
+  110  FORMAT( '     - SAVE_GLOBAL_TPCORE_BC: Wrote BC''s at ', a )
++ 
++            ! fha 3-3-11: write out CSPEC BC conditions
++            CALL OPEN_BC_FILE( FOR_WRITE=.TRUE., WINDOW=101)
++ 
++            ! Loop over each tracer
++            DO N = 1, NTSPEC(1)
++
++               ! Save concentrations in WINDOW REGION to diski
++               ! fha 11-9-11
++               ! change LLPAR to 38 to be consistent with restart.mod
++               DO L = 1, 38
++                  BC_CU_CP(1:IM_BC,1:JM_BC,L,N) = 
++     &               CSPEC_FULL(I1_BC:I2_BC,J1_BC:J2_BC,L,N)
++               ENDDO
++ 
++               ! Write boundary conditions to binary punch file
++               CALL BPCH2( IU_BC_CU_CP,  MODELNAME, LONRES,   LATRES,
++     &               HALFPOLAR, CENTER180, CATEGOR_S, N,
++     &               UNIT_S,   TAU,       TAU,      RESERVED,
++     &               IM_BC,  JM_BC,   LLPAR,  I1_BC,
++     &               J1_BC, 1, BC_CU_CP(1:IM_BC, 1:JM_BC, 
++     &               1:LLPAR, N) )
++
++            ENDDO
++			
++			
++               ! Echo info
++               STAMP = TIMESTAMP_STRING()
++               WRITE( 6, 120 ) STAMP
++ 120  FORMAT( '     - SAVE_GLOBAL_TPCORE_BC: Wrote CU CP BC''s at ', a )
+ 
+          ELSEIF ((IC .eq. 2) .and. LWINDO_NA )THEN
+ 
+@@ -429,16 +488,43 @@
+                CALL BPCH2( IU_BC_NA,  MODELNAME, LONRES,   LATRES,
+      &               HALFPOLAR, CENTER180, CATEGORY, N,
+      &               UNIT,   TAU,       TAU,      RESERVED,
+-     &               IM_BC_NA,  JM_BC_NA,   LLPAR,  I1_BC_NA,
++     &               IM_BC_NA,  JM_BC_NA,   38,  I1_BC_NA,
+      &               J1_BC_NA, 1, BC_NA(1:IM_BC_NA, 1:JM_BC_NA, 
+-     &               1:LLPAR, N) )
++     &               1:38, N) )
+ 
+             ENDDO
+-
+             ! Echo info
+             STAMP = TIMESTAMP_STRING()
+             WRITE( 6, 111 ) STAMP
+  111  FORMAT( '     - SAVE_GLOBAL_TPCORE_BC: Wrote NA BC''s at ', a )
++            ! fha 3-3-11: write out CSPEC BC conditions
++            CALL OPEN_BC_FILE( FOR_WRITE=.TRUE., WINDOW=102)
++ 
++            ! Loop over each tracer
++            DO N = 1, NTSPEC(1)
++
++               ! Save concentrations in WINDOW REGION to disk
++               ! fha 11-9-11
++               ! changed LLPAR to 38 to be consistent with restart.mod 
++               DO L = 1, 38
++                  BC_CP(1:IM_BC_NA,1:JM_BC_NA,L,N) = 
++     &               CSPEC_FULL(I1_BC_NA:I2_BC_NA,J1_BC_NA:J2_BC_NA,L,N)
++               ENDDO
++ 
++               ! Write boundary conditions to binary punch file
++               CALL BPCH2( IU_BC_CP,  MODELNAME, LONRES,   LATRES,
++     &               HALFPOLAR, CENTER180, CATEGOR_S, N,
++     &               UNIT_S,   TAU,       TAU,      RESERVED,
++     &               IM_BC_NA,  JM_BC_NA,  38,  I1_BC_NA,
++     &               J1_BC_NA, 1, BC_CP(1:IM_BC_NA, 1:JM_BC_NA, 
++     &               1:38, N) )
++
++            ENDDO
++
++            ! Echo info
++            STAMP = TIMESTAMP_STRING()
++            WRITE( 6, 121 ) STAMP
++ 121  FORMAT( '     - SAVE_GLOBAL_TPCORE_BC: Wrote NA CP BC''s at ', a )
+ 
+          ELSEIF ((IC .eq. 3) .and. LWINDO_EU )THEN
+ 
+@@ -492,6 +578,8 @@
+      &               1:LLPAR, N) )
+ 
+             ENDDO
++	
++
+ 
+             ! Echo info
+             STAMP = TIMESTAMP_STRING()
+@@ -647,12 +735,16 @@
+       USE TRACER_MOD, ONLY : N_TRACERS
+       USE LOGICAL_MOD,   ONLY : LWINDO_NA, LWINDO_EU
+       USE LOGICAL_MOD,   ONLY : LWINDO_CH, LWINDO_CU
+-
++      USE TIME_MOD,   ONLY : TIMESTAMP_STRING !fha 3-5-11
++!      USE COMODE_MOD, ONLY : IGAS, NTSPEC
++ 
+ #     include "CMN_SIZE"  ! Size parameters
+ #     include "define.h"
++#     include "comode.h"
+ 
+       ! Local variables
+       INTEGER :: I, J, L, N
++      CHARACTER(LEN=16)  :: STAMP !fha 3-5-11
+ 
+       !=================================================================
+       ! CLEAN_WINDOW_TPCORE_BC begins here!
+@@ -672,7 +764,10 @@
+          ENDDO
+ !$OMP END PARALLEL DO
+ #endif
+-
++            ! Echo info
++            STAMP = TIMESTAMP_STRING()
++            WRITE( 6, 113 ) STAMP
++ 113  FORMAT( '     - BEGIN_CLEAR_TPCORE_BC: at ', a )
+       IF ( LWINDO_CU ) THEN
+ !$OMP PARALLEL DO
+ !$OMP+DEFAULT( SHARED )
+@@ -685,8 +780,30 @@
+          ENDDO
+          ENDDO
+          ENDDO
++         ENDDO		 
++!$OMP END PARALLEL DO
++            ! Echo info
++            STAMP = TIMESTAMP_STRING()
++            WRITE( 6, 114 ) STAMP
++ 114  FORMAT( '     - CLEARED_CU_TPCORE_BC: at ', a )
++!$OMP PARALLEL DO
++!$OMP+DEFAULT( SHARED )
++!$OMP+PRIVATE( I, J, L, N )
++         DO N = 1, IGAS
++         DO L = 1, 38
++         DO J = 1, JM_BC
++         DO I = 1, IM_BC 
++            !fha 3-4-11
++            BC_CU_CP(I,J,L,N) = 0e0
++         ENDDO
++         ENDDO
++         ENDDO
+          ENDDO
+ !$OMP END PARALLEL DO
++            ! Echo info
++            STAMP = TIMESTAMP_STRING()
++            WRITE( 6, 115 ) STAMP
++ 115  FORMAT( '     - CLEARED_CU_CP_TPCORE_BC: at ', a )
+       ENDIF
+ 
+       IF ( LWINDO_NA ) THEN
+@@ -703,6 +820,28 @@
+          ENDDO
+          ENDDO
+ !$OMP END PARALLEL DO
++            ! Echo info
++            STAMP = TIMESTAMP_STRING()
++            WRITE( 6, 116 ) STAMP
++ 116  FORMAT( '     - CLEARED_NA_TPCORE_BC: at ', a )
++!$OMP PARALLEL DO
++!$OMP+DEFAULT( SHARED )
++!$OMP+PRIVATE( I, J, L, N )
++         DO N = 1, IGAS
++         DO L = 1, 38 
++         DO J = 1, JM_BC_NA
++         DO I = 1, IM_BC_NA
++                !fha 3-3-11
++                BC_CP(I,J,L,N) = 0e0
++         ENDDO
++         ENDDO
++         ENDDO
++         ENDDO
++!$OMP END PARALLEL DO
++            ! Echo info
++            STAMP = TIMESTAMP_STRING()
++            WRITE( 6, 117 ) STAMP
++ 117  FORMAT( '     - CLEARED_NA_CP_TPCORE_BC: at ', a )
+       ENDIF
+ 
+       IF ( LWINDO_EU ) THEN
+@@ -1207,6 +1346,7 @@
+ 
+ #     include "CMN_SIZE"   ! Size parameters
+ #     include "define.h"
++#     include "comode.h" !fha 3-4-11
+ 
+       ! Arguments
+       INTEGER, INTENT(IN) :: TS, I0W, J0W, I1, J1, I2, J2
+@@ -1265,7 +1405,7 @@
+       J0_BC = J1_BC - 1
+ 
+       IF (.not. LWINDO2x25) THEN
+-#if defined(GRID4x5)
++#if defined(GRID4x5) || defined(NESTED_NA)
+          ! Lower-left corner of coarse-grid NA BC WINDOW region
+          I1_BC_NA = 9
+          J1_BC_NA = 26
+@@ -1276,13 +1416,25 @@
+ #endif
+       ELSE
+ #if defined(GRID2x25) || defined(NESTED_NA)
++         ! fha 3-4-11: New boundaries for CMAQ AQMII domain
++         ! actual corners: LL: (18,55) UR: (50, 73)
++         ! pad 5 cells to be sure LL-5 UR+5
+          ! Lower-left corner of coarse-grid NA BC WINDOW region
+-         I1_BC_NA = 17
+-         J1_BC_NA = 51
++         I1_BC_NA = 13 !minimum longitude
++         J1_BC_NA = 50 !minimum latitude
+   
+          ! Upper-right corner of coarse-grid NA BC WINDOW region
+-         I2_BC_NA = 57
+-         J2_BC_NA = 81
++         I2_BC_NA = 55 !maximum longitude
++         J2_BC_NA = 78 !maximum latitude
++		 
++		 
++         ! Lower-left corner of coarse-grid NA BC WINDOW region
++         !I1_BC_NA = 10
++         !J1_BC_NA = 48
++  
++         ! Upper-right corner of coarse-grid NA BC WINDOW region
++         !I2_BC_NA = 61
++         !J2_BC_NA = 83
+ #endif
+       ENDIF
+  
+@@ -1369,6 +1521,11 @@
+          IF ( AS /= 0 ) CALL ALLOC_ERR( 'BC' )
+          BC = 0e0
+ 
++         !fha 3-4-11
++         ALLOCATE( BC_CU_CP( IM_BC, JM_BC, 38, IGAS ), STAT=AS )
++         IF ( AS /= 0 ) CALL ALLOC_ERR( 'BC_CU_CP' )
++         BC_CU_CP = 0e0
++
+       ENDIF
+ 
+       IF ( LWINDO_CH ) THEN
+@@ -1387,6 +1544,12 @@
+          IF ( AS /= 0 ) CALL ALLOC_ERR( 'BC_NA' )
+          BC_NA = 0e0
+ 
++         !fha 3-3-11
++         ALLOCATE( BC_CP( IM_BC_NA, JM_BC_NA, 38, IGAS )
++     &                   , STAT=AS )
++         IF ( AS /= 0 ) CALL ALLOC_ERR( 'BC_CP' )
++         BC_CP = 0e0
++
+       ENDIF
+ 
+       IF ( LWINDO_EU ) THEN
+@@ -1468,6 +1631,9 @@
+       IF ( ALLOCATED( BC_NA  ) ) DEALLOCATE( BC_NA  )
+       IF ( ALLOCATED( BC_EU  ) ) DEALLOCATE( BC_EU  )
+       IF ( ALLOCATED( BC_CH  ) ) DEALLOCATE( BC_CH  )
++      !fha 3-3-11
++      IF ( ALLOCATED( BC_CP  ) ) DEALLOCATE( BC_CP  )
++	  IF ( ALLOCATED( BC_CU_CP  ) ) DEALLOCATE( BC_CU_CP  )
+       IF ( ALLOCATED( MAP1x1 ) ) DEALLOCATE( MAP1x1 )
+ 
+       ! Return to calling program
+diff --git a/GeosCore/tracerid_mod.f b/GeosCore/tracerid_mod.f
+index 19e5e82..a6d95eb 100644
+--- a/GeosCore/tracerid_mod.f
++++ b/GeosCore/tracerid_mod.f
+@@ -1332,7 +1332,16 @@
+       ! mechanism in the urban slot of SMVGEAR II (bmy, 4/21/03)
+       NCS = NCSURBAN
+ 
++      ! hotp for fha (3/9/11)
++      print*, 'CSPEC SPECIES NAMES'
++      ! end hotp for fha
++
+       DO I = 1, NSPEC(NCS)
++
++         ! hotp for fha (3/9/11)
++         print*,I,NAMEGAS(I)
++         ! end hotp for fha
++
+          IF ( NAMEGAS(I) == 'O3'     ) IDO3     = I
+          IF ( NAMEGAS(I) == 'NO2'    ) IDNO2    = I
+          IF ( NAMEGAS(I) == 'NO3'    ) IDNO3    = I
+diff --git a/GeosCore/wetscav_mod.f b/GeosCore/wetscav_mod.f
+index b3a4ce1..57c2a0c 100644
+--- a/GeosCore/wetscav_mod.f
++++ b/GeosCore/wetscav_mod.f
+@@ -375,11 +375,18 @@
+          !==============================================================
+          IF ( PREACC(I,J) > 0d0 ) THEN
+ 
++
++            ! 062212 - fha - implemented fix for negative values on 22 July 2010 from wiki
++            ! http://wiki.seas.harvard.edu/geos-chem/index.php/Wet_deposition
+             ! Large scale or convective fraction of precipitation
+             IF ( LS ) THEN
+                FRAC = ( PREACC(I,J) - PRECON(I,J) ) / PREACC(I,J) 
++               ! mp hack for -ve wet deposition
++               if ( preacc(i,j) .lt. 1.0E-10 ) frac = 0.67
+             ELSE
+                FRAC = PRECON(I,J) / PREACC(I,J)
++               ! mp hack for -ve wet deposition
++               if ( preacc(i,j) .lt. 1.0E-10 ) frac = 0.33
+             ENDIF
+ 
+             ! Start at the top of the atmosphere
+diff --git a/GeosUtil/file_mod.f b/GeosUtil/file_mod.f
+index 32b314b..79a1bde 100644
+--- a/GeosUtil/file_mod.f
++++ b/GeosUtil/file_mod.f
+@@ -40,6 +40,8 @@
+       INTEGER, PUBLIC, PARAMETER :: IU_BC_NA   = 20  ! TPCORE BC files: NA grid
+       INTEGER, PUBLIC, PARAMETER :: IU_BC_EU   = 21  ! TPCORE BC files: EU grid
+       INTEGER, PUBLIC, PARAMETER :: IU_BC_CH   = 22  ! TPCORE BC files: CH grid
++      INTEGER, PUBLIC, PARAMETER :: IU_BC_CP   = 24  ! TPCORE BC files: NA CSPEC grid	  
++      INTEGER, PUBLIC, PARAMETER :: IU_BC_CU_CP = 25 ! TPCORE BC files: GLOBAL CSPEC grid
+       INTEGER, PUBLIC, PARAMETER :: IU_FILE    = 65  ! Generic file
+       INTEGER, PUBLIC, PARAMETER :: IU_TP      = 69  ! "YYYYMMDD.tropp.*"
+       INTEGER, PUBLIC, PARAMETER :: IU_PH      = 70  ! "YYYYMMDD.phis.*"
+@@ -93,6 +95,7 @@
+ !  20 Nov 2009 - R. Yantosca - Added ProTeX headers
+ !  18 Dec 2009 - Aaron van D - Added file units IU_BC_NA, IU_BC_EU, IU_BC_CH
+ !  15 Mar 2010 - D. Henze    - Add IU_OAP for SOA restart file.  
++!  26 Apr 2011 - F. Akhtar   - Added boundary CSPEC array files
+ !EOP
+ !------------------------------------------------------------------------------
+ !BOC
+@@ -384,6 +387,7 @@
+ !  20 Oct 2005 - R. Yantosca - Also close IU_XT.
+ !  20 Nov 2009 - R. Yantosca - Added ProTeX header
+ !  18 Dec 2009 - Aaron van D - Now close files IU_BC_NA, IU_BC_EU, IU_BC_CH   
++!  26 Apr 2012 - F. Akhtar   - Added boundary CSPEC files
+ !EOP
+ !------------------------------------------------------------------------------
+ !BOC
+@@ -404,6 +408,8 @@
+       CLOSE( IU_BC_NA   )
+       CLOSE( IU_BC_EU   )
+       CLOSE( IU_BC_CH   )
++      CLOSE( IU_BC_CP   )
++      CLOSE( IU_BC_CU_CP )
+       CLOSE( IU_FILE    )
+       CLOSE( IU_PH      )
+       CLOSE( IU_TP      )
+diff --git a/Headers/define.h b/Headers/define.h
+index 59f0f43..ca224ff 100644
+--- a/Headers/define.h
++++ b/Headers/define.h
+@@ -134,8 +134,8 @@
+ !#define GRID05x0666 'GRID05x0666'
+ !#define GRID1x1     'GRID1x1'
+ !#define GRID1x125   'GRID1x125'
+-!#define GRID2x25    'GRID2x25'
+-#define GRID4x5     'GRID4x5'
++#define GRID2x25    'GRID2x25'
++!#define GRID4x5     'GRID4x5'
+ #define GRIDREDUCED 'GRIDREDUCED'
+ 
+ !----- Compilers -----
