@@ -1,0 +1,196 @@
+diff --git a/GeosCore/tpcore_bc_mod.f b/GeosCore/tpcore_bc_mod.f
+index e690e87..468efbd 100644
+--- a/GeosCore/tpcore_bc_mod.f
++++ b/GeosCore/tpcore_bc_mod.f
+@@ -32,6 +32,7 @@
+ !  (19b) BC_NA   (REAL*4  )    : Array containing NA tracers on coarse grid
+ !  (19c) BC_EU   (REAL*4  )    : Array containing EU tracers on coarse grid
+ !  (19d) BC_CH   (REAL*4  )    : Array containing CH tracers on coarse grid
++!  (19e) BC_CP   (REAL*4  )    : Array containing NA species on coarse grid
+ !  (20) MAP1x1   (INTEGER )    : Mapping array from 1x1 -> 4x5 grid
+ !
+ !  Module Routines:
+@@ -186,7 +187,8 @@
+       REAL*4,  ALLOCATABLE :: BC_NA(:,:,:,:)
+       REAL*4,  ALLOCATABLE :: BC_EU(:,:,:,:)
+       REAL*4,  ALLOCATABLE :: BC_CH(:,:,:,:)
+-
++      !fha 3-3-11 
++      REAL*4,  ALLOCATABLE :: BC_CP(:,:,:,:)
+       !=================================================================
+       ! MODULE ROUTINES -- follow below the "CONTAINS" statement
+       !=================================================================
+@@ -246,8 +248,10 @@
+       USE BPCH2_MOD,     ONLY : OPEN_BPCH2_FOR_READ
+       USE DIRECTORY_MOD, ONLY : TPBC_DIR,    TPBC_DIR_NA
+       USE DIRECTORY_MOD, ONLY : TPBC_DIR_CH, TPBC_DIR_EU
+-      USE FILE_MOD,      ONLY : IU_BC, IU_BC_NA, IU_BC_EU, IU_BC_CH
++      USE FILE_MOD,      ONLY : IU_BC, IU_BC_NA, IU_BC_EU, IU_BC_CH 
+       USE TIME_MOD,      ONLY : EXPAND_DATE, GET_NYMD, ITS_A_NEW_DAY
++      !fha 3-3-11
++      USE FILE_MOD,      ONLY : IU_BC_CP
+ 
+       IMPLICIT NONE
+ 
+@@ -284,6 +288,8 @@
+             FILENAME = TRIM( TPBC_DIR_EU ) // 'BC.YYYYMMDD'
+          ELSEIF ( WINDOW .eq. 4 ) THEN
+             FILENAME = TRIM( TPBC_DIR_CH ) // 'BC.YYYYMMDD'
++         ELSEIF ( WINDOW .eq. 102 ) THEN
++            FILENAME = TRIM( TPBC_DIR_NA ) // 'BC.CSPEC.YYYYMMDD'
+          ENDIF
+          
+          ! Replace YYYYMMDD with the actual date
+@@ -311,7 +317,7 @@
+      &               FILENAME )
+          ELSEIF ( WINDOW .eq. 4 ) THEN
+             IF ( PRESENT( FOR_WRITE ) )
+-     &        CALL OPEN_BPCH2_FOR_WRITE( IU_BC_CH, 
++     &        CALL OPEN_BPCH2_FOR_WRITE( IU_BC_CP, 
+      &               FILENAME )
+          ENDIF
+ 
+@@ -347,8 +353,12 @@
+       USE TRACER_MOD, ONLY : N_TRACERS, STT
+       USE LOGICAL_MOD, ONLY : LWINDO_CU, LWINDO_NA
+       USE LOGICAL_MOD, ONLY : LWINDO_CH, LWINDO_EU
++      ! fha 3-3-11: write out CSPEC BC conditions
++      USE COMODE_MOD,  ONLY : CSPEC_FULL
++      USE FILE_MOD,    ONLY : IU_BC_CP
+ 
+ #     include "CMN_SIZE" ! Size parameters
++#     include "comode.h"   ! IGAS
+ 
+       ! Local variables
+       LOGICAL, SAVE      :: FIRST     = .TRUE.
+@@ -363,6 +373,10 @@
+       CHARACTER(LEN=40)  :: CATEGORY  = 'IJ-AVG-$'
+       CHARACTER(LEN=40)  :: UNIT      = 'v/v'
+       CHARACTER(LEN=40)  :: RESERVED  = ''
++      ! fha 3-3-11
++      CHARACTER(LEN=40)  :: CATEGOR_S = 'IJ-CHK-$'
++      CHARACTER(LEN=40)  :: UNIT_S    = 'molec/cm3/box'
++
+ 
+       !=================================================================
+       ! SAVE_GLOBAL_TPCORE_BC begins here!
+@@ -435,6 +449,28 @@
+ 
+             ENDDO
+ 
++            ! fha 3-3-11: write out CSPEC BC conditions
++            CALL OPEN_BC_FILE( FOR_WRITE=.TRUE., WINDOW=102)
++ 
++            ! Loop over each tracer
++            DO N = 1, NTSPEC(1)
++
++               ! Save concentrations in WINDOW REGION to disk
++               DO L = 1, LLPAR
++                  BC_CP(1:IM_BC_NA,1:JM_BC_NA,L,N) = 
++     &               CSPEC_FULL(I1_BC_NA:I2_BC_NA,J1_BC_NA:J2_BC_NA,L,N)
++               ENDDO
++ 
++               ! Write boundary conditions to binary punch file
++               CALL BPCH2( IU_BC_CP,  MODELNAME, LONRES,   LATRES,
++     &               HALFPOLAR, CENTER180, CATEGOR_S, N,
++     &               UNIT_S,   TAU,       TAU,      RESERVED,
++     &               IM_BC_NA,  JM_BC_NA,   LLPAR,  I1_BC_NA,
++     &               J1_BC_NA, 1, BC_CP(1:IM_BC_NA, 1:JM_BC_NA, 
++     &               1:LLPAR, N) )
++
++            ENDDO
++
+             ! Echo info
+             STAMP = TIMESTAMP_STRING()
+             WRITE( 6, 111 ) STAMP
+@@ -492,6 +528,8 @@
+      &               1:LLPAR, N) )
+ 
+             ENDDO
++	
++
+ 
+             ! Echo info
+             STAMP = TIMESTAMP_STRING()
+@@ -698,6 +736,8 @@
+          DO J = 1, JM_BC_NA
+          DO I = 1, IM_BC_NA
+             BC_NA(I,J,L,N) = 0e0
++	    !fha 3-3-11
++	    BC_CP(I,J,L,N) = 0e0
+          ENDDO
+          ENDDO
+          ENDDO
+@@ -1387,6 +1427,12 @@
+          IF ( AS /= 0 ) CALL ALLOC_ERR( 'BC_NA' )
+          BC_NA = 0e0
+ 
++         !fha 3-3-11
++         ALLOCATE( BC_CP( IM_BC_NA, JM_BC_NA, LLPAR, N_TRACERS )
++     &                   , STAT=AS )
++         IF ( AS /= 0 ) CALL ALLOC_ERR( 'BC_CP' )
++         BC_CP = 0e0
++
+       ENDIF
+ 
+       IF ( LWINDO_EU ) THEN
+@@ -1468,6 +1514,8 @@
+       IF ( ALLOCATED( BC_NA  ) ) DEALLOCATE( BC_NA  )
+       IF ( ALLOCATED( BC_EU  ) ) DEALLOCATE( BC_EU  )
+       IF ( ALLOCATED( BC_CH  ) ) DEALLOCATE( BC_CH  )
++      !fha 3-3-11
++      IF ( ALLOCATED( BC_CP  ) ) DEALLOCATE( BC_CP  )
+       IF ( ALLOCATED( MAP1x1 ) ) DEALLOCATE( MAP1x1 )
+ 
+       ! Return to calling program
+diff --git a/GeosUtil/file_mod.f b/GeosUtil/file_mod.f
+index f6cecf8..fcb9719 100644
+--- a/GeosUtil/file_mod.f
++++ b/GeosUtil/file_mod.f
+@@ -39,6 +39,7 @@
+       INTEGER, PUBLIC, PARAMETER :: IU_BC_NA   = 20  ! TPCORE BC files: NA grid
+       INTEGER, PUBLIC, PARAMETER :: IU_BC_EU   = 21  ! TPCORE BC files: EU grid
+       INTEGER, PUBLIC, PARAMETER :: IU_BC_CH   = 22  ! TPCORE BC files: CH grid
++      INTEGER, PUBLIC, PARAMETER :: IU_BC_CP   = 24  ! TPCORE BC files: NA CSPEC grid
+       INTEGER, PUBLIC, PARAMETER :: IU_FILE    = 65  ! Generic file
+       INTEGER, PUBLIC, PARAMETER :: IU_TP      = 69  ! "YYYYMMDD.tropp.*"
+       INTEGER, PUBLIC, PARAMETER :: IU_PH      = 70  ! "YYYYMMDD.phis.*"
+@@ -93,6 +94,7 @@
+ !  15 Mar 2010 - D. Henze    - Add IU_OAP for SOA restart file.  
+ !  19 Aug 2010 - R. Yantosca - Added IU_CN and IU_A1 parameters for MERRA
+ !  19 Aug 2010 - R. Yantosca - Remove IU_KZZ
++!  03 Mar 2011 - F. Akhtar - Added file units for IU_BC_CP
+ !EOP
+ !------------------------------------------------------------------------------
+ !BOC
+@@ -386,6 +388,7 @@
+ !  18 Dec 2009 - Aaron van D - Now close files IU_BC_NA, IU_BC_EU, IU_BC_CH 
+ !  19 Aug 2010 - R. Yantosca - Remove IU_KZZ  
+ !  19 Aug 2010 - R. Yantosca - Now close IU_A1
++!  03 Mar 2011 - F. Akhtar - Now close IU_BC_CP
+ !EOP
+ !------------------------------------------------------------------------------
+ !BOC
+@@ -406,6 +409,7 @@
+       CLOSE( IU_BC_NA   )
+       CLOSE( IU_BC_EU   )
+       CLOSE( IU_BC_CH   )
++      CLOSE( IU_BC_CP   )
+       CLOSE( IU_FILE    )
+       CLOSE( IU_PH      )
+       CLOSE( IU_TP      )
+diff --git a/Headers/define.h b/Headers/define.h
+index cdfce94..3bacfe5 100644
+--- a/Headers/define.h
++++ b/Headers/define.h
+@@ -139,8 +139,8 @@
+ !#define GRID05x0666 'GRID05x0666'
+ !#define GRID1x1     'GRID1x1'
+ !#define GRID1x125   'GRID1x125'
+-!#define GRID2x25    'GRID2x25'
+-#define GRID4x5     'GRID4x5'
++#define GRID2x25    'GRID2x25'
++!#define GRID4x5     'GRID4x5'
+ #define GRIDREDUCED 'GRIDREDUCED'
+ 
+ !----- Compilers -----
