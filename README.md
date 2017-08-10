@@ -31,7 +31,7 @@ This package includes the FORTRAN-based regridder and python pre-processor.
 Verify installation (recommended but optional)
 
 Users can download a test run directory from the following address:
-wget https://dl.dropbox.com/u/52906249/geos2cmaq_test/testrun.tar.gz
+wget https://www.dropbox.com/s/ler7ey58bfe96no/testrun.tar.gz?dl=1
 
 This test case provides a simple framework for compiling and running the tool on a two day period. It provides a default case for compiling the code and contains a default script for interacting with the tool
 (see changing run options for more information).
