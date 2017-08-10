@@ -31,10 +31,14 @@ This package includes the FORTRAN-based regridder and python pre-processor.
 Verify installation (recommended but optional)
 
 Users can download a test run directory from the following address:
-wget https://www.dropbox.com/s/ler7ey58bfe96no/testrun.tar.gz?dl=1
+https://www.dropbox.com/s/ler7ey58bfe96no/testrun.tar.gz?dl=1
+
 
 This test case provides a simple framework for compiling and running the tool on a two day period. It provides a default case for compiling the code and contains a default script for interacting with the tool
 (see changing run options for more information).
+
+Download the version of geos2cmaq used in the test:
+https://www.dropbox.com/s/6w9ytecdk46irc1/geos2cmaq.tar.gz?dl=1
 
 Unzip the downloaded files into a common directory:
 
@@ -46,7 +50,7 @@ your system. Contact your computer support staff with help with this step if the
 The tool requires flags for netcdf and ioapi (with m3utilio) to be set in the makefile.
 Compile the code and run the test case conversion:
 
-    make -f Makefile.test
+    make -f Makefile
 
 If the code is installed properly, this command will compile both the python and FORTRAN portions of
 the tool, producing a single executable and running the run.sh script for the default period (20050101-
