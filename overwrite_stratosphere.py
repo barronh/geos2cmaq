@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 import shutil
 from glob import glob
@@ -33,7 +35,7 @@ def copyup(date_start, date_end, bctemp, mettemp, minz = None, maxz = None):
         bcpathold = bctemp % date_now.strftime('%Y%m%d')
         bcpathnew = os.path.basename(bcpathold + '.LamFu')
         shutil.copyfile(bcpathold, bcpathnew)
-        print bcpathold, metpath, bcpathnew
+        print(bcpathold, metpath, bcpathnew)
         bcf = Dataset(bcpathnew, mode = 'r+')
         o3 = bcf.variables['O3']
 
@@ -135,7 +137,7 @@ def copyup(date_start, date_end, bctemp, mettemp, minz = None, maxz = None):
                         skipcount += 1
             bcf.sync()
             tflag = '%dT%06d' % tuple(bcf.variables['TFLAG'][time_idx, 0].tolist())
-            print '%s, N, Skip Col, Write Col, Skip/Count: %.f %6d %6d %.2f' % (tflag, count, skipcount, writecount, skipcount / count)
+            print('%s, N, Skip Col, Write Col, Skip/Count: %.f %6d %6d %.2f' % (tflag, count, skipcount, writecount, skipcount / count))
         bcf.close()
 if __name__ == '__main__':
     import sys
@@ -152,7 +154,7 @@ if __name__ == '__main__':
         else:
             raise ValueError('')
     except:
-        print """Usage: %s YYYYMMDD NDAYS BCTEMP METTEMP [minz maxz]
+        print("""Usage: %s YYYYMMDD NDAYS BCTEMP METTEMP [minz maxz]
 
 Description:
     Identifies tropopause following Lam and Fu (doi:10.5194/acp-10-4013-2010)
@@ -171,7 +173,7 @@ Parameters:
 e.g.,
 
 $ %s 
-""" % (__file__, __file__)
+""" % (__file__, __file__))
         exit()
     date_start = datetime.strptime(year_month_day, '%Y%m%d')
     date_end = date_start + timedelta(days = int(ndays) - 1)

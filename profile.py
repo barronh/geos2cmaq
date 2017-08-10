@@ -1,20 +1,20 @@
 from matplotlib.mlab import csv2rec
-from StringIO import StringIO
+from io import StringIO
 import numpy as np
 
 class profile(object):
     def __init__(self, path):
-        lines = file(path).read().split('\n')
+        lines = open(path).read().split('\n')
         header = lines[3].split()
-        nlay, nspc = map(int, header[:2])
-        sigmas = map(float, header[2:])
+        nlay, nspc = list(map(int, header[:2]))
+        sigmas = list(map(float, header[2:]))
         nsigmas = len(sigmas)
-        date, time = map(int, lines[4].split())
+        date, time = list(map(int, lines[4].split()))
         starts =  [5 + i + i * nspc for i in range(4)]
         ends = [s + 1 + nspc for s in starts]
         keys = [lines[s].strip().lower() for s in starts]
         fieldnames = ('name',) + tuple(['s%f' % i for i in sigmas])
-        self.data = dict([(k, csv2rec(StringIO('\n'.join(lines[s+1:e])), delimiter = ' ', names = fieldnames, converterd = dict(names = lambda x: str(x).strip()))) for k, s, e in zip(keys, starts, ends)])
+        self.data = dict([(k, csv2rec(StringIO(u'\n'.join(lines[s+1:e])), delimiter = ' ', names = fieldnames, converterd = dict(names = lambda x: str(x).strip()))) for k, s, e in zip(keys, starts, ends)])
         self._profile_spcs = np.char.strip(self.data[keys[0]]['name'])
         data_type = self.data[keys[0]].dtype
         data_shape =  self.data[keys[0]].shape

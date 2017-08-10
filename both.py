@@ -1,10 +1,12 @@
-from smv2 import get_cspec
-from tracerinfo import get_tracers
+from __future__ import print_function
+
+from .smv2 import get_cspec
+from .tracerinfo import get_tracers
 from collections import defaultdict
 class geos(defaultdict):
     def __init__(self, tracerinfo, smvlog = None):
         self.tracer_data = get_tracers(tracerinfo)
-        keys = self.tracer_data.keys()
+        keys = list(self.tracer_data.keys())
         keys.sort()
         self._tracer_spcs = [self.tracer_data[k]['NAME'] for k in keys]
         self._tracer_usage = dict([(t,0) for t in self._tracer_spcs])
@@ -67,23 +69,23 @@ class geos(defaultdict):
         out = '(BC1_GS_VERT( 1:N, 1:L, GS_%s ) * MOLTOPPM( 1:N, 1:L))' % key
         return out
     def check(self):
-        uts = set([t for t, c in self._tracer_usage.iteritems() if c > 0])
-        ts = set([t for t, c in self._tracer_usage.iteritems() if c < 1])
-        ucs = set([t for t, c in self._cspec_usage.iteritems() if c > 0])
-        cs = set([t for t, c in self._cspec_usage.iteritems() if c < 1])
+        uts = set([t for t, c in self._tracer_usage.items() if c > 0])
+        ts = set([t for t, c in self._tracer_usage.items() if c < 1])
+        ucs = set([t for t, c in self._cspec_usage.items() if c > 0])
+        cs = set([t for t, c in self._cspec_usage.items() if c < 1])
         cs = set(cs).difference(self._tracer_spcs)
         uts =list(uts); uts.sort()
         ts =list(ts); ts.sort()
         ucs =list(ucs); ucs.sort()
         cs =list(cs); cs.sort()
-        print 'Used Tracers: %s' % (' '.join(uts))
-        print
-        print 'Unused Tracers: %s' % (' '.join(ts))
-        print
-        print 'Used CSPEC: %s' % (' '.join(ucs))
-        print
-        print 'Unused CSPEC: %s' % (' '.join(cs))
-        print
+        print('Used Tracers: %s' % (' '.join(uts)))
+        print()
+        print('Unused Tracers: %s' % (' '.join(ts)))
+        print()
+        print('Used CSPEC: %s' % (' '.join(ucs)))
+        print()
+        print('Unused CSPEC: %s' % (' '.join(cs)))
+        print()
     def aero(self, aero):
         self._aero = aero
 

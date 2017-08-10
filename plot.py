@@ -1,8 +1,10 @@
+from __future__ import print_function
 import sys
 import pylab as pl
 import numpy as np
 from warnings import warn
 from netCDF4 import MFDataset
+from functools import reduce
 
 
 def aqmeiidomain():
@@ -65,7 +67,7 @@ def plot(paths, keys = ['O3'], func = 'mean', map = True, prefix = 'BC', scale =
                     cmaqmap.drawcoastlines(ax = axmap)
                     cmaqmap.drawcountries(ax = axmap)
                     cmaqmap.drawstates(ax = axmap)
-                except Exception, e:
+                except Exception as e:
                     warn('An error occurred and no map will be shown:\n%s' % str(e))
                 axn = fig.add_subplot(3,3,2, sharex = axmap)
                 axw = fig.add_subplot(3,3,4, sharey = axmap)
